@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-pub const SLOT_COUNT: usize = 5;
+pub const SLOT_COUNT: usize = 9;
 pub const SLOT_SIZE: f32 = 60.0;
 pub const SLOT_MARGIN: f32 = 5.0;
 

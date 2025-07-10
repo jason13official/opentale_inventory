@@ -30,5 +30,5 @@ fn main() {
 
         .run();
 
-    println!("Closed the inventory demo successfully..")
+    println!("Closed the inventory demo successfully.")
 }

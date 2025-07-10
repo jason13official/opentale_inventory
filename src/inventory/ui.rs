@@ -38,7 +38,7 @@ pub fn create_inventory_ui(commands: &mut Commands, asset_server: &Res<AssetServ
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        width: Val::Px(400.0),
+                        width: Val::Px(640.0),
                         height: Val::Px(80.0),
                         flex_direction: FlexDirection::Row,
                         justify_content: JustifyContent::SpaceEvenly, // spread them out evenly (hopefully)
