@@ -156,17 +156,17 @@ fn find_slot_under_cursor(
     None
 }
 
-/// Formats an item stack for display (handles singular vs plural)
-fn format_item_display(item: &ItemStack) -> String {
-    if item.size > 1 {
 
-        // multiple items, show name and count.
-        format!("{}\n{}", item.name, item.size)
+
+/// Formats an item stack for display (handles singular vs plural)
+fn format_item_display(stack: &ItemStack) -> String {
+    if stack.size > 1 {
+        // multiple items, so we display the name and amount
+        format!("{}\n{}", stack.item.display_name, stack.size)
     }
     else {
-
-        // single item, just show name
-        item.name.clone()
+        // just one item, so only display the name
+        stack.item.display_name.to_string()
     }
 }
 
@@ -265,7 +265,7 @@ fn process_right_click(slot_index: usize, inventory: &mut Inventory, held_item: 
             if held_stack.can_merge_with(slot_stack) && held_stack.size > 0 {
 
                 // Is there room in the slot for one more item?
-                if slot_stack.size < slot_stack.max_stack_size {
+                if slot_stack.size < slot_stack.item.properties.max_stack_size {
 
                     // Transfer one item from hand to slot
                     held_stack.size -= 1;  // We have one less
@@ -294,9 +294,8 @@ fn process_right_click(slot_index: usize, inventory: &mut Inventory, held_item: 
 
                 // Create a new stack with just one item for the slot
                 inventory.set_slot(slot_index, Some(ItemStack::new(
-                    &held_stack.name,
-                    1,
-                    held_stack.max_stack_size, // same item type/name, just one, and same stacking rules
+                    held_stack.item.clone(),
+                    1
                 )));
             } else {
                 // We only have one item, so we give it all up

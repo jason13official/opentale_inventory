@@ -1,5 +1,5 @@
 [package]
-name = "OpenTale-Inventory"
+name = "opentale_inventory"
 version = "0.2.0"
 edition = "2021"
 

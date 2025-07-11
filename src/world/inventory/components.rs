@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use crate::world::item::item::{Item, ItemProperties};
 
 pub const SLOT_COUNT: usize = 9;
 pub const SLOT_SIZE: f32 = 60.0;
@@ -23,9 +24,8 @@ pub struct HeldItem {
 /// ItemStack -> a stack of items with a size limit that can be stored in inventories
 #[derive(Clone, Debug)]
 pub struct ItemStack {
-    pub name: String,
-    pub size: u32,
-    pub max_stack_size: u32,
+    pub item: Item,
+    pub size: u32
 }
 
 /// ItemStack implementation
@@ -33,12 +33,10 @@ impl ItemStack {
 
     // "constructor"; I know this isn't Java,
     // but I don't know what else to call this
-    // TODO: construct ItemStacks from registered Items, default to stack size 1 unless set otherwise.
-    pub fn new(name: &str, size: u32, max_stack_size: u32) -> Self {
+    pub fn new(item: Item, size: u32) -> Self {
         Self {
-            name: name.to_string(),
+            item,
             size,
-            max_stack_size, // shorthand for self_variable = parameter_variable
         }
     }
 
@@ -46,7 +44,9 @@ impl ItemStack {
     ///
     /// maybe check item IDs, types, enchantments, etc.
     pub fn can_merge_with(&self, other: &ItemStack) -> bool {
-        self.name == other.name && self.max_stack_size == other.max_stack_size
+        let self_properties: &ItemProperties = &self.item.properties;
+        let other_properties: &ItemProperties = &other.item.properties;
+        self.item == other.item && self.item.identifier == other.item.identifier && self_properties.max_stack_size == other_properties.max_stack_size
     }
 
     /// Try to dump held items onto another item stack
@@ -55,38 +55,54 @@ impl ItemStack {
     ///
     /// This method returns `true` if merging onto the item stack was successful,
     /// or `false` if some items were left on `self`.
-    pub fn try_merge(&mut self, compared_item_stack: &mut ItemStack) -> bool {
+    pub fn try_merge(&mut self, other_stack: &mut ItemStack) -> bool {
 
         // are the stacks even similar?
-        if !self.can_merge_with(compared_item_stack) {
+        if !self.can_merge_with(other_stack) {
             return false;
         }
 
         // how many total
-        let combined_stack_size = self.size + compared_item_stack.size;
+        let combined_stack_size = self.size + other_stack.size;
 
         // can we can fit everything into the target stack?
-        if combined_stack_size <= compared_item_stack.max_stack_size {
+        if combined_stack_size <= other_stack.item.properties.max_stack_size {
 
             // dump everything into the other stack
-            compared_item_stack.size = combined_stack_size;
+            other_stack.size = combined_stack_size;
             self.size = 0;
             true // success
         }
         else {
 
-            // other stack can't take all the items
+            // our combined_stack_size is greater than the max size of other_stack
 
-            // how many items don't fit
-            let overflow: u32 = combined_stack_size - compared_item_stack.max_stack_size;
+            // how much many more items can the stack take?
+            let available_space = other_stack.item.properties.max_stack_size - other_stack.size;
 
-            // dump as many as possible
-            compared_item_stack.size = compared_item_stack.max_stack_size;
+            // how many will we transfer? (the smallest amount, either our own size or available space)
+            let transferred_amount = self.size.min(available_space);
 
-            // keep the leftovers
-            self.size = overflow;
+            // add to the size as many items as we transferred to the other stack
+            other_stack.size += transferred_amount;
 
-            false // partial success
+            // equally remove the same amount from ourselves
+            self.size -= transferred_amount;
+
+            false
+
+            // // other stack can't take all the items
+            //
+            // // how many items don't fit
+            // let overflow: u32 = combined_stack_size - compared_item_stack.size;
+            //
+            // // dump as many as possible
+            // compared_item_stack.size = compared_item_stack.size;
+            //
+            // // keep the leftovers
+            // self.size = overflow;
+            //
+            // false // partial success
         }
     }
 
@@ -103,9 +119,8 @@ impl ItemStack {
         self.size -= half;
 
         Some(ItemStack {
-            name: self.name.clone(), // same name bc it's literally the same thing
-            size: half,
-            max_stack_size: self.max_stack_size,
+            item: self.item.clone(), // same name bc it's literally the same thing
+            size: half
         })
     }
 

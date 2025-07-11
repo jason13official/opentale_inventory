@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use crate::world::item::*;
 use super::components::*;
 
 /// Sets up the initial game state and UI
@@ -8,9 +9,10 @@ pub fn setup_game(
     mut inventory: ResMut<Inventory>,
 ) {
     // add some test items to the inventory
-    inventory.set_slot(0, Some(ItemStack::new("Apple", 16, 64))); // TODO: get away from instancing item stacks with raw strings
-    inventory.set_slot(1, Some(ItemStack::new("Sword", 1, 1)));
-    inventory.set_slot(2, Some(ItemStack::new("Apple", 32, 64)));
+    inventory.set_slot(0, Some(ItemStack::new(items::APPLE, 16)));
+    inventory.set_slot(1, Some(ItemStack::new(items::DIAMOND, 2)));
+    inventory.set_slot(2, Some(ItemStack::new(items::IRON_SWORD, 1)));
+    inventory.set_slot(3, Some(ItemStack::new(items::APPLE, 32)));
 
     // spawn the camera so we can actually see things
     commands.spawn(Camera2dBundle::default());

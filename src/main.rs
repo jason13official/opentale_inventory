@@ -1,9 +1,21 @@
-use bevy::prelude::*;
+mod world;
+mod core;
 
-mod inventory;
-use inventory::{components::*, systems::*, ui::*};
+use bevy::prelude::*;
+use world::item::{items::*};
+use crate::world::inventory::components::{HeldItem, Inventory};
+use crate::world::inventory::systems::*;
+use crate::world::inventory::ui::*;
 
 fn main() {
+
+    for (id, item) in ITEMS {
+        println!("{} -> {:?}", id, item.properties);
+    }
+
+    println!("DIAMOND durability: {:?}", DIAMOND.properties.durability);
+
+
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {

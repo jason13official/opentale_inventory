@@ -3,14 +3,6 @@
 version = 4
 
 [[package]]
-name = "OpenTale-Inventory"
-version = "0.2.0"
-dependencies = [
- "bevy",
- "bevy-inspector-egui",
-]
-
-[[package]]
 name = "ab_glyph"
 version = "0.2.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4598,6 +4590,14 @@ name = "once_cell"
 version = "1.21.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42f5e15c9953c5e4ccceeb2e7382a716482c34515315f7b03532b8b4e8393d2d"
+
+[[package]]
+name = "opentale_inventory"
+version = "0.2.0"
+dependencies = [
+ "bevy",
+ "bevy-inspector-egui",
+]
 
 [[package]]
 name = "orbclient"
