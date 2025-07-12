@@ -58,6 +58,7 @@ impl DragState {
         }
     }
 
+    #[allow(unused)] /// unused is BS it's being used
     pub fn reset_left_drag(&mut self) {
         self.left_drag_slots.clear();
         self.left_drag_start_amount = 0;

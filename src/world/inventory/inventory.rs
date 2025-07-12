@@ -1,8 +1,5 @@
-use bevy::prelude::Resource;
-use crate::world::inventory::*;
 use crate::world::inventory::item_stack::ItemStack;
-use crate::world::item::item::Item;
-use crate::world::item::items::DIAMOND;
+use bevy::prelude::Resource;
 
 // #[derive(Debug, Copy, Clone)]
 // pub struct Slot(pub Option<ItemStack>); // slots directly hold onto item stacks
@@ -27,6 +24,7 @@ impl Slot {
         }
     }
 
+    #[allow(unused)]
     pub fn is_empty(&self) -> bool {
         self.stack.is_none()
     }
@@ -36,6 +34,7 @@ impl Slot {
         self.stack.take()
     }
 
+    #[allow(unused)]
     pub fn insert(&mut self, stack: ItemStack) -> Option<ItemStack> {
         match &mut self.stack {
             Some(existing) if existing.item == stack.item => {

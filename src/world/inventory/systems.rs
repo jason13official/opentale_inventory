@@ -4,7 +4,7 @@ use bevy::input::mouse::MouseButtonInput;
 use crate::world::inventory::containers::{CloseChestEvent, CloseInventoryEvent, ContainerManager, ContainerType, ContainerUI, OpenChestEvent, OpenInventoryEvent};
 use crate::world::inventory::inventory::SlotContainer;
 use crate::world::inventory::item_stack::ItemStack;
-use crate::world::inventory::ui::{create_container_ui, create_minecraft_ui};
+use crate::world::inventory::ui::{create_minecraft_ui};
 use super::components::*;
 
 #[derive(Component)]
@@ -311,67 +311,67 @@ fn deposit_single_item(slot_index: usize, container: &mut SlotContainer, held_it
 }
 
 // FIXED: Even distribution with better filtering and math
-fn distribute_items_evenly(
-    container_manager: &mut ContainerManager,
-    held_item: &mut HeldItem,
-    drag_state: &DragState,
-) {
-    let Some(held_stack) = &held_item.stack else { return; };
-    let total_items = held_stack.size;
-
-    // FIXED: Filter valid slots and exclude pickup slot
-    let mut valid_slots = filter_valid_distribution_slots(
-        &drag_state.left_drag_slots,
-        held_stack,
-        container_manager
-    );
-
-    // Remove pickup slot from distribution
-    if let Some(pickup_slot) = &drag_state.pickup_slot {
-        valid_slots.retain(|slot| slot != pickup_slot);
-    }
-
-    if valid_slots.is_empty() {
-        return;
-    }
-
-    let valid_slot_count = valid_slots.len() as u32;
-    let items_per_slot = total_items / valid_slot_count;
-    let remainder = total_items % valid_slot_count;
-    let mut total_distributed = 0;
-
-    // FIXED: Better distribution logic
-    for (i, &(ref container_type, slot_index)) in valid_slots.iter().enumerate() {
-        if let Some(container) = container_manager.get_container_mut(container_type) {
-            // Give extra items to first 'remainder' slots
-            let items_for_this_slot = if i < remainder as usize {
-                items_per_slot + 1
-            } else {
-                items_per_slot
-            };
-
-            if items_for_this_slot > 0 {
-                let stack_to_place = ItemStack::new(held_stack.item.unwrap(), items_for_this_slot);
-
-                // FIXED: Track what was actually placed
-                let leftover = place_stack_in_slot(container, slot_index, stack_to_place);
-                let actually_placed = items_for_this_slot - leftover.map(|s| s.size).unwrap_or(0);
-                total_distributed += actually_placed;
-            }
-        }
-    }
-
-    // FIXED: Update held item based on what was actually distributed
-    if total_distributed >= total_items {
-        held_item.stack = None;
-    } else if let Some(ref mut held_stack) = held_item.stack {
-        held_stack.size = total_items - total_distributed;
-        // If we have 0 items left, clear the stack
-        if held_stack.size == 0 {
-            held_item.stack = None;
-        }
-    }
-}
+// fn distribute_items_evenly(
+//     container_manager: &mut ContainerManager,
+//     held_item: &mut HeldItem,
+//     drag_state: &DragState,
+// ) {
+//     let Some(held_stack) = &held_item.stack else { return; };
+//     let total_items = held_stack.size;
+//
+//     // FIXED: Filter valid slots and exclude pickup slot
+//     let mut valid_slots = filter_valid_distribution_slots(
+//         &drag_state.left_drag_slots,
+//         held_stack,
+//         container_manager
+//     );
+//
+//     // Remove pickup slot from distribution
+//     if let Some(pickup_slot) = &drag_state.pickup_slot {
+//         valid_slots.retain(|slot| slot != pickup_slot);
+//     }
+//
+//     if valid_slots.is_empty() {
+//         return;
+//     }
+//
+//     let valid_slot_count = valid_slots.len() as u32;
+//     let items_per_slot = total_items / valid_slot_count;
+//     let remainder = total_items % valid_slot_count;
+//     let mut total_distributed = 0;
+//
+//     // FIXED: Better distribution logic
+//     for (i, &(ref container_type, slot_index)) in valid_slots.iter().enumerate() {
+//         if let Some(container) = container_manager.get_container_mut(container_type) {
+//             // Give extra items to first 'remainder' slots
+//             let items_for_this_slot = if i < remainder as usize {
+//                 items_per_slot + 1
+//             } else {
+//                 items_per_slot
+//             };
+//
+//             if items_for_this_slot > 0 {
+//                 let stack_to_place = ItemStack::new(held_stack.item.unwrap(), items_for_this_slot);
+//
+//                 // FIXED: Track what was actually placed
+//                 let leftover = place_stack_in_slot(container, slot_index, stack_to_place);
+//                 let actually_placed = items_for_this_slot - leftover.map(|s| s.size).unwrap_or(0);
+//                 total_distributed += actually_placed;
+//             }
+//         }
+//     }
+//
+//     // FIXED: Update held item based on what was actually distributed
+//     if total_distributed >= total_items {
+//         held_item.stack = None;
+//     } else if let Some(ref mut held_stack) = held_item.stack {
+//         held_stack.size = total_items - total_distributed;
+//         // If we have 0 items left, clear the stack
+//         if held_stack.size == 0 {
+//             held_item.stack = None;
+//         }
+//     }
+// }
 
 // FIXED: Better validation for distribution slots
 fn filter_valid_distribution_slots(
@@ -493,41 +493,7 @@ pub fn clear_drag_frame_flags(mut drag_state: ResMut<DragState>) {
     drag_state.was_right_dragging_this_frame = false;
 }
 
-pub fn handle_left_clicks(
-    mut interaction_query: Query<(&Interaction, &InventorySlot), (Changed<Interaction>, With<Button>)>,
-    mut container_manager: ResMut<ContainerManager>,
-    mut held_item: ResMut<HeldItem>,
-    mut drag_state: ResMut<DragState>,
-    mouse_input: Res<ButtonInput<MouseButton>>,
-) {
-    // Clear pickup flag each frame
-    drag_state.clear_pickup_flag();
 
-    for (interaction, slot) in &mut interaction_query {
-        if *interaction == Interaction::Pressed {
-            if let Some(container) = container_manager.get_container_mut(&slot.container_type) {
-                let had_item_before = held_item.stack.is_some();
-                let slot_has_item = container.get_slot(slot.index).is_some();
-
-                if !had_item_before && slot_has_item {
-                    // Picking up an item
-                    process_left_click(slot.index, container, &mut held_item);
-                    drag_state.mark_pickup(slot.container_type.clone(), slot.index);
-                } else if had_item_before {
-                    // Already holding item - check if we should start dragging or place immediately
-                    if mouse_input.pressed(MouseButton::Left) {
-                        // Mouse is pressed - start or continue drag
-                        if !drag_state.is_left_dragging {
-                            drag_state.start_left_drag(held_item.stack.as_ref().unwrap().size);
-                        }
-                        drag_state.add_left_drag_slot(slot.container_type.clone(), slot.index);
-                    }
-                    // Note: We don't place items on single click anymore - only on mouse release
-                }
-            }
-        }
-    }
-}
 
 pub fn handle_left_mouse_release(
     mut mouse_events: EventReader<MouseButtonInput>,
@@ -567,38 +533,57 @@ pub fn handle_left_mouse_release(
     }
 }
 
-pub fn handle_left_drag_movement(
-    mut drag_state: ResMut<DragState>,
-    held_item: Res<HeldItem>,
-    slot_query: Query<(&InventorySlot, &GlobalTransform, &Node)>,
-    windows: Query<&Window>,
-    mouse_input: Res<ButtonInput<MouseButton>>,
-) {
-    // Only track movement if we have an item and mouse is pressed
-    if held_item.stack.is_none() || !mouse_input.pressed(MouseButton::Left) {
-        return;
-    }
 
-    let Ok(window) = windows.get_single() else { return; };
-    let Some(cursor_pos) = window.cursor_position() else { return; };
-
-    // If we're moving with mouse pressed and haven't started dragging yet, start now
-    if !drag_state.is_left_dragging {
-        drag_state.start_left_drag(held_item.stack.as_ref().unwrap().size);
-    }
-
-    if let Some(slot) = find_slot_under_cursor(cursor_pos, &slot_query) {
-        drag_state.add_left_drag_slot(slot.container_type.clone(), slot.index);
-    }
-}
 
 // Simplified drag end processing
+// fn process_drag_end(
+//     container_manager: &mut ContainerManager,
+//     held_item: &mut HeldItem,
+//     drag_state: &mut DragState,
+// ) {
+//     let Some(held_stack) = &held_item.stack else {
+//         return;
+//     };
+//
+//     // If no slots were dragged over, do nothing (keep holding item)
+//     if drag_state.left_drag_slots.is_empty() {
+//         return;
+//     }
+//
+//     // If dragging back to pickup slot only, do nothing (keep holding item)
+//     let is_single_slot_back_to_pickup = if let Some(pickup_slot) = &drag_state.pickup_slot {
+//         drag_state.left_drag_slots.len() == 1 &&
+//             drag_state.left_drag_slots.first() == Some(pickup_slot)
+//     } else {
+//         false
+//     };
+//
+//     if is_single_slot_back_to_pickup {
+//         return; // Keep holding the item
+//     }
+//
+//     // Single slot distribution
+//     if drag_state.left_drag_slots.len() == 1 {
+//         if let Some((container_type, slot_index)) = drag_state.left_drag_slots.first() {
+//             // Skip if this is the pickup slot
+//             if Some((container_type.clone(), *slot_index)) != drag_state.pickup_slot {
+//                 if let Some(container) = container_manager.get_container_mut(container_type) {
+//                     process_left_click(*slot_index, container, held_item);
+//                 }
+//             }
+//         }
+//     } else {
+//         // Multi-slot distribution
+//         distribute_items_evenly(container_manager, held_item, drag_state);
+//     }
+// }
+
 fn process_drag_end(
     container_manager: &mut ContainerManager,
     held_item: &mut HeldItem,
     drag_state: &mut DragState,
 ) {
-    let Some(held_stack) = &held_item.stack else {
+    let Some(_) = &held_item.stack else {
         return;
     };
 
@@ -607,30 +592,160 @@ fn process_drag_end(
         return;
     }
 
-    // If dragging back to pickup slot only, do nothing (keep holding item)
-    let is_single_slot_back_to_pickup = if let Some(pickup_slot) = &drag_state.pickup_slot {
-        drag_state.left_drag_slots.len() == 1 &&
-            drag_state.left_drag_slots.first() == Some(pickup_slot)
-    } else {
-        false
-    };
-
-    if is_single_slot_back_to_pickup {
-        return; // Keep holding the item
-    }
-
-    // Single slot distribution
+    // Single slot distribution (including pickup slot - allow placing back)
     if drag_state.left_drag_slots.len() == 1 {
         if let Some((container_type, slot_index)) = drag_state.left_drag_slots.first() {
-            // Skip if this is the pickup slot
-            if Some((container_type.clone(), *slot_index)) != drag_state.pickup_slot {
-                if let Some(container) = container_manager.get_container_mut(container_type) {
-                    process_left_click(*slot_index, container, held_item);
-                }
+            if let Some(container) = container_manager.get_container_mut(container_type) {
+                process_left_click(*slot_index, container, held_item);
             }
         }
     } else {
         // Multi-slot distribution
         distribute_items_evenly(container_manager, held_item, drag_state);
+    }
+}
+
+// Updated distribution function that smarter about pickup slot handling
+fn distribute_items_evenly(
+    container_manager: &mut ContainerManager,
+    held_item: &mut HeldItem,
+    drag_state: &DragState,
+) {
+    let Some(held_stack) = &held_item.stack else { return; };
+    let total_items = held_stack.size;
+
+    // Get all valid slots for distribution
+    let mut valid_slots = filter_valid_distribution_slots(
+        &drag_state.left_drag_slots,
+        held_stack,
+        container_manager
+    );
+
+    // Only exclude pickup slot if we have OTHER valid slots to distribute to
+    if let Some(pickup_slot) = &drag_state.pickup_slot {
+        let non_pickup_slots: Vec<_> = valid_slots.iter()
+            .filter(|slot| *slot != pickup_slot)
+            .cloned()
+            .collect();
+
+        // If we have other slots besides the pickup slot, exclude the pickup slot
+        // This prevents "distributing" to the slot we picked up from when there are alternatives
+        if !non_pickup_slots.is_empty() {
+            valid_slots = non_pickup_slots;
+        }
+        // If non_pickup_slots is empty, we keep the pickup slot as a valid target
+    }
+
+    if valid_slots.is_empty() {
+        return; // No valid slots to distribute to
+    }
+
+    let valid_slot_count = valid_slots.len() as u32;
+    let items_per_slot = total_items / valid_slot_count;
+    let remainder = total_items % valid_slot_count;
+    let mut total_distributed = 0;
+
+    // Distribute items evenly across valid slots
+    for (i, &(ref container_type, slot_index)) in valid_slots.iter().enumerate() {
+        if let Some(container) = container_manager.get_container_mut(container_type) {
+            // Give extra items to first 'remainder' slots
+            let items_for_this_slot = if i < remainder as usize {
+                items_per_slot + 1
+            } else {
+                items_per_slot
+            };
+
+            if items_for_this_slot > 0 {
+                let stack_to_place = ItemStack::new(held_stack.item.unwrap(), items_for_this_slot);
+
+                // Track what was actually placed
+                let leftover = place_stack_in_slot(container, slot_index, stack_to_place);
+                let actually_placed = items_for_this_slot - leftover.map(|s| s.size).unwrap_or(0);
+                total_distributed += actually_placed;
+            }
+        }
+    }
+
+    // Update held item based on what was actually distributed
+    if total_distributed >= total_items {
+        held_item.stack = None;
+    } else if let Some(ref mut held_stack) = held_item.stack {
+        held_stack.size = total_items - total_distributed;
+        // If we have 0 items left, clear the stack
+        if held_stack.size == 0 {
+            held_item.stack = None;
+        }
+    }
+}
+
+
+pub fn handle_left_clicks_updated(
+    mut mouse_events: EventReader<MouseButtonInput>,
+    mut container_manager: ResMut<ContainerManager>,
+    mut held_item: ResMut<HeldItem>,
+    drag_state: Res<DragState>,
+    slot_query: Query<(&InventorySlot, &GlobalTransform, &Node)>,
+    windows: Query<&Window>,
+) {
+    let Ok(window) = windows.get_single() else { return; };
+    let Some(cursor_pos) = window.cursor_position() else { return; };
+
+    for event in mouse_events.read() {
+        if event.button == MouseButton::Left && event.state == ButtonState::Released {
+            // EXACTLY like right-click: only process if we weren't dragging
+            if !drag_state.is_left_dragging && !drag_state.was_left_dragging_this_frame {
+                if let Some(slot) = find_slot_under_cursor(cursor_pos, &slot_query) {
+                    if let Some(container) = container_manager.get_container_mut(&slot.container_type) {
+                        process_left_click(slot.index, container, &mut held_item);
+                    }
+                }
+            }
+        }
+    }
+}
+
+// FIXED: Drag handling that tracks mouse properly
+pub fn handle_left_drag_deposit(
+    mut mouse_events: EventReader<MouseButtonInput>,
+    mut container_manager: ResMut<ContainerManager>,
+    mut held_item: ResMut<HeldItem>,
+    mut drag_state: ResMut<DragState>,
+    slot_query: Query<(&InventorySlot, &GlobalTransform, &Node)>,
+    windows: Query<&Window>,
+) {
+    let Ok(window) = windows.get_single() else { return; };
+    let Some(cursor_pos) = window.cursor_position() else { return; };
+
+    // Reset the frame flag
+    drag_state.was_left_dragging_this_frame = false;
+
+    for event in mouse_events.read() {
+        if event.button == MouseButton::Left {
+            match event.state {
+                ButtonState::Pressed => {
+                    // Start dragging if we have an item
+                    if held_item.stack.is_some() {
+                        drag_state.is_left_dragging = true;
+                        drag_state.left_drag_slots.clear();
+                    }
+                }
+                ButtonState::Released => {
+                    // End dragging
+                    if drag_state.is_left_dragging {
+                        drag_state.was_left_dragging_this_frame = true;
+                        process_drag_end(&mut container_manager, &mut held_item, &mut drag_state);
+                    }
+                    drag_state.is_left_dragging = false;
+                    drag_state.left_drag_slots.clear();
+                }
+            }
+        }
+    }
+
+    // Track dragging movement (like right-click does)
+    if drag_state.is_left_dragging && held_item.stack.is_some() {
+        if let Some(slot) = find_slot_under_cursor(cursor_pos, &slot_query) {
+            drag_state.add_left_drag_slot(slot.container_type.clone(), slot.index);
+        }
     }
 }

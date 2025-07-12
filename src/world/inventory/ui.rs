@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 use crate::world::inventory::containers::{ContainerLayout, ContainerManager, ContainerPosition, ContainerType, ContainerUI};
-use crate::world::inventory::inventory::SlotContainer;
 use crate::world::inventory::item_stack::ItemStack;
 use crate::world::item::*;
 use super::components::*;

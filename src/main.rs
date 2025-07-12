@@ -1,5 +1,4 @@
 mod world;
-mod core;
 
 use bevy::app::AppExit;
 use bevy::prelude::*;
@@ -49,12 +48,11 @@ fn main() {
         ).chain()) // Run these in order
 
         .add_systems(Update, (
-            // Left-click handling
-            handle_left_clicks,
-            handle_left_mouse_release,
-            handle_left_drag_movement,
+            // Left-click handling (now exactly like right-click)
+            handle_left_clicks_updated,    // Like handle_right_clicks_updated
+            handle_left_drag_deposit,      // Like handle_right_drag_deposit
 
-            // Right-click systems
+            // Right-click systems (unchanged)
             handle_right_clicks_updated,
             handle_right_drag_deposit,
 
