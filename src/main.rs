@@ -4,9 +4,9 @@ mod world;
 
 use crate::systems::container::{handle_container_events, handle_ui_rebuild};
 use crate::systems::drag::{handle_left_drag_deposit, handle_right_drag_deposit};
-use crate::systems::input::{handle_keyboard_input, handle_left_clicks_updated, handle_right_clicks_updated};
-use crate::systems::visual::{update_held_item_display, update_slot_visuals};
-use crate::world::inventory::components::{DragState, HeldItem};
+use crate::systems::input::{handle_keyboard_input, handle_left_clicks_updated, handle_right_clicks_updated, handle_hotbar_selection};
+use crate::systems::visual::{update_held_item_display, update_slot_visuals, update_selected_item_display};
+use crate::world::inventory::components::{DragState, HeldItem, SelectedHotbarSlot};
 use crate::world::inventory::containers::*;
 use crate::world::inventory::ui::*;
 use bevy::app::AppExit;
@@ -35,6 +35,7 @@ fn main() {
         .insert_resource(HeldItem::default())
         .insert_resource(DragState::default())
         .insert_resource(ContainerManager::default())
+        .insert_resource(SelectedHotbarSlot::default())
 
         .add_event::<OpenInventoryEvent>()
         .add_event::<CloseInventoryEvent>()
@@ -48,6 +49,7 @@ fn main() {
 
         .add_systems(Update, (
             handle_keyboard_input,
+            handle_hotbar_selection,
             handle_container_events,
             handle_ui_rebuild,
         ).chain()) // Run these in order
@@ -62,6 +64,7 @@ fn main() {
             // Visual updates
             update_slot_visuals,
             update_held_item_display,
+            update_selected_item_display,
         ).after(handle_ui_rebuild)) // run after UI is rebuilt
 
         .run();

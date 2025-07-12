@@ -34,6 +34,20 @@ pub struct DragState {
     pub pickup_slot: Option<(ContainerType, usize)>,
 }
 
+#[derive(Resource)]
+pub struct SelectedHotbarSlot {
+    pub slot_index: usize,
+}
+
+impl Default for SelectedHotbarSlot {
+    fn default() -> Self {
+        Self { slot_index: 0 }
+    }
+}
+
+#[derive(Component)]
+pub struct SelectedItemDisplay;
+
 impl DragState {
     pub fn add_left_drag_slot(&mut self, container_type: ContainerType, index: usize) {
         let slot = (container_type, index);

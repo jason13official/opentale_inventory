@@ -32,6 +32,7 @@ pub fn setup_game(
     // Create UI for the active containers
     create_minecraft_ui(&mut commands, &asset_server, &container_manager);
     create_held_item_ui(&mut commands, &asset_server);
+    create_selected_item_ui(&mut commands, &asset_server);
     create_hud(&mut commands, &asset_server);
 }
 
@@ -304,5 +305,52 @@ pub fn create_held_item_ui(commands: &mut Commands, asset_server: &Res<AssetServ
                     color: Color::rgb(1.0, 1.0, 1.0),
                 },
             ));
+        });
+}
+
+/// Creates the UI that displays the selected hotbar item in the bottom-right corner
+pub fn create_selected_item_ui(commands: &mut Commands, asset_server: &Res<AssetServer>) {
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                position_type: PositionType::Absolute,
+                justify_content: JustifyContent::FlexEnd,
+                align_items: AlignItems::FlexEnd,
+                padding: UiRect::all(Val::Px(20.0)),
+                ..default()
+            },
+            ..default()
+        })
+        .with_children(|parent| {
+            parent
+                .spawn((
+                    NodeBundle {
+                        style: Style {
+                            width: Val::Px(SLOT_SIZE + 20.0),
+                            height: Val::Px(SLOT_SIZE + 20.0),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            border: UiRect::all(Val::Px(2.0)),
+                            ..default()
+                        },
+                        background_color: Color::rgba(0.2, 0.2, 0.2, 0.9).into(),
+                        // border_color: Color::rgb(0.6, 0.6, 0.6).into(),
+                        border_color: Color::rgb(1.0, 1.0, 0.0).into(),
+                        ..default()
+                    },
+                    SelectedItemDisplay,
+                ))
+                .with_children(|parent| {
+                    parent.spawn(TextBundle::from_section(
+                        "",
+                        TextStyle {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: 16.0,
+                            color: Color::WHITE,
+                        },
+                    ));
+                });
         });
 }

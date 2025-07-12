@@ -1,6 +1,6 @@
 use crate::utils::item_operations::{process_left_click, process_right_click};
 use crate::utils::slot_finder::find_slot_under_cursor;
-use crate::world::inventory::components::{DragState, HeldItem, InventorySlot};
+use crate::world::inventory::components::{DragState, HeldItem, InventorySlot, SelectedHotbarSlot};
 use crate::world::inventory::containers::{CloseChestEvent, CloseInventoryEvent, ContainerManager, OpenChestEvent, OpenInventoryEvent};
 use bevy::input::mouse::MouseButtonInput;
 use bevy::input::{ButtonInput, ButtonState};
@@ -48,6 +48,31 @@ pub fn handle_keyboard_input(
                 close_inventory_events.send(CloseInventoryEvent);
             }
             _ => {}
+        }
+    }
+}
+
+pub fn handle_hotbar_selection(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut selected_hotbar_slot: ResMut<SelectedHotbarSlot>,
+) {
+    // map keycodes to slot indexes
+    let key_mappings = [
+        (KeyCode::Digit1, 0),
+        (KeyCode::Digit2, 1),
+        (KeyCode::Digit3, 2),
+        (KeyCode::Digit4, 3),
+        (KeyCode::Digit5, 4),
+        (KeyCode::Digit6, 5),
+        (KeyCode::Digit7, 6),
+        (KeyCode::Digit8, 7),
+        (KeyCode::Digit9, 8),
+    ];
+
+    for (key, slot_index) in key_mappings {
+        if keys.just_pressed(key) {
+            selected_hotbar_slot.slot_index = slot_index;
+            break;
         }
     }
 }
