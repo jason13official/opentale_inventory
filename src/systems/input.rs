@@ -2,7 +2,7 @@ use crate::utils::item_operations::{process_left_click, process_right_click};
 use crate::utils::slot_finder::find_slot_under_cursor;
 use crate::world::inventory::components::{DragState, HeldItem, InventorySlot, SelectedHotbarSlot};
 use crate::world::inventory::containers::{CloseChestEvent, CloseInventoryEvent, ContainerManager, OpenChestEvent, OpenInventoryEvent};
-use bevy::input::mouse::MouseButtonInput;
+use bevy::input::mouse::{MouseButtonInput, MouseWheel};
 use bevy::input::{ButtonInput, ButtonState};
 use bevy::prelude::{EventReader, EventWriter, GlobalTransform, KeyCode, MouseButton, Node, Query, Res, ResMut, Window};
 
@@ -54,9 +54,10 @@ pub fn handle_keyboard_input(
 
 pub fn handle_hotbar_selection(
     keys: Res<ButtonInput<KeyCode>>,
+    mut scroll_events: EventReader<MouseWheel>,
     mut selected_hotbar_slot: ResMut<SelectedHotbarSlot>,
 ) {
-    // map keycodes to slot indexes
+    // map input keys to slot indexes
     let key_mappings = [
         (KeyCode::Digit1, 0),
         (KeyCode::Digit2, 1),
@@ -73,6 +74,21 @@ pub fn handle_hotbar_selection(
         if keys.just_pressed(key) {
             selected_hotbar_slot.slot_index = slot_index;
             break;
+        }
+    }
+
+    // mouse wheel scrolling
+    for scroll_event in scroll_events.read() {
+        if scroll_event.y != 0.0 {
+            let current_index = selected_hotbar_slot.slot_index as i32;
+            let new_index = if scroll_event.y > 0.0 {
+                // decrease index (with wrapping)
+                if current_index == 0 { 8 } else { current_index - 1 }
+            } else {
+                // increase index (with wrapping)
+                if current_index == 8 { 0 } else { current_index + 1 }
+            };
+            selected_hotbar_slot.slot_index = new_index as usize;
         }
     }
 }
