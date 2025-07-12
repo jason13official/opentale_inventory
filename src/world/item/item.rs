@@ -1,6 +1,3 @@
-use std::num::ParseIntError;
-use std::str::FromStr;
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct ItemProperties {
     pub max_stack_size: u32,
@@ -51,14 +48,4 @@ pub struct Item {
 
     /// The Item's underlying properties, such as maximum stack size, initial durability, etc.
     pub properties: ItemProperties
-}
-
-impl Item {
-    pub fn new(identifier: &'static str, display_name: &'static str, properties: ItemProperties) -> Self {
-        Self {
-            identifier,
-            display_name,
-            properties
-        }
-    }
 }

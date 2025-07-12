@@ -1,5 +1,5 @@
-use bevy::prelude::*;
 use crate::world::inventory::inventory::SlotContainer;
+use bevy::prelude::*;
 
 // Define container types
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -152,7 +152,7 @@ impl ContainerManager {
 // Component to mark UI elements as belonging to a specific container
 #[derive(Component)]
 pub struct ContainerUI {
-    pub container_type: ContainerType,
+    #[allow(dead_code)] pub container_type: ContainerType, // todo maybe remove? could be useful? who knows
 }
 
 // Events for container switching

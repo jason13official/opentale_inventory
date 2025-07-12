@@ -1,9 +1,8 @@
-use bevy::prelude::*;
+use super::components::*;
 use crate::world::inventory::containers::{ContainerLayout, ContainerManager, ContainerPosition, ContainerType, ContainerUI};
-use crate::world::inventory::inventory::SlotContainer;
 use crate::world::inventory::item_stack::ItemStack;
 use crate::world::item::*;
-use super::components::*;
+use bevy::prelude::*;
 
 /// Sets up the initial game state and UI
 pub fn setup_game(
@@ -234,45 +233,6 @@ pub fn create_hud(commands: &mut Commands, asset_server: &Res<AssetServer>) {
                             color: Color::WHITE,
                         },
                     ));
-                });
-        });
-}
-
-/// Creates the main inventory UI
-pub fn create_inventory_ui(commands: &mut Commands, asset_server: &Res<AssetServer>) {
-    commands
-        .spawn(NodeBundle {
-            style: Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            ..default()
-        })
-        .with_children(|parent| {
-            // Container for inventory slots
-            parent
-                .spawn(NodeBundle {
-                    style: Style {
-                        width: Val::Px(640.0),
-                        height: Val::Px(80.0),
-                        flex_direction: FlexDirection::Row,
-                        justify_content: JustifyContent::SpaceEvenly, // spread them out evenly (hopefully)
-                        align_items: AlignItems::Center,
-                        border: UiRect::all(Val::Px(2.0)),
-                        ..default()
-                    },
-                    background_color: Color::rgb(0.2, 0.2, 0.2).into(),
-                    border_color: Color::rgb(0.6, 0.6, 0.6).into(),
-                    ..default()
-                })
-                .with_children(|parent| {
-                    // Create individual slots
-                    for i in 0..SLOT_COUNT {
-                        create_inventory_slot(parent, i, asset_server, &ContainerType::PlayerInventory);
-                    }
                 });
         });
 }

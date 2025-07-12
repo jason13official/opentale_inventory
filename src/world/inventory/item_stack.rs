@@ -10,8 +10,6 @@ pub struct ItemStack {
 /// ItemStack implementation
 impl ItemStack {
 
-    // "constructor"; I know this isn't Java,
-    // but I don't know what else to call this
     pub fn new(item: Item, size: u32) -> Self {
         Self {
             item: Some(item),
@@ -76,25 +74,10 @@ impl ItemStack {
             self.size -= transferred_amount;
 
             false
-
-            // // other stack can't take all the items
-            //
-            // // how many items don't fit
-            // let overflow: u32 = combined_stack_size - compared_item_stack.size;
-            //
-            // // dump as many as possible
-            // compared_item_stack.size = compared_item_stack.size;
-            //
-            // // keep the leftovers
-            // self.size = overflow;
-            //
-            // false // partial success
         }
     }
 
     /// Splits this stack in half, returning the split portion
-    ///
-    /// math is hard, but we're just dividing by 2 so don't stress
     pub fn split_half(&mut self) -> Option<ItemStack> {
 
         if self.size <= 1 {
@@ -113,6 +96,6 @@ impl ItemStack {
     /// Checks if this stack is empty (count = 0)
     #[allow(dead_code)] // this should get used... eventually?
     pub fn is_empty(&self) -> bool {
-        self.size == 0 // revolutionary logic: if size is 0, it's empty.
+        self.size == 0
     }
 }
