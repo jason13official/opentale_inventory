@@ -55,28 +55,8 @@ pub fn create_minecraft_ui(
             ..default()
         })
         .with_children(|parent| {
-            // Top section (for chests and other containers)
-            parent
-                .spawn(NodeBundle {
-                    style: Style {
-                        width: Val::Percent(100.0),
-                        flex_direction: FlexDirection::Column,
-                        justify_content: JustifyContent::FlexStart,
-                        align_items: AlignItems::Center,
-                        ..default()
-                    },
-                    ..default()
-                })
-                .with_children(|parent| {
-                    // Create top containers (chest, etc.)
-                    for layout in &container_manager.layouts {
-                        if matches!(layout.position, ContainerPosition::Top) {
-                            create_container_ui(parent, asset_server, layout);
-                        }
-                    }
-                });
 
-            // Middle section (for player inventory)
+            // Middle section (for chests and player inventory grouped together)
             parent
                 .spawn(NodeBundle {
                     style: Style {
@@ -91,7 +71,15 @@ pub fn create_minecraft_ui(
                     ..default()
                 })
                 .with_children(|parent| {
-                    // Create center containers (player inventory)
+
+                    // Create top containers (chest, etc.) - positioned above player inventory
+                    for layout in &container_manager.layouts {
+                        if matches!(layout.position, ContainerPosition::Top) {
+                            create_container_ui(parent, asset_server, layout);
+                        }
+                    }
+
+                    // Create center containers (player inventory) - positioned below chests
                     for layout in &container_manager.layouts {
                         if matches!(layout.position, ContainerPosition::Center) {
                             create_container_ui(parent, asset_server, layout);
