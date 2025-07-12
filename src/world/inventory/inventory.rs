@@ -1,9 +1,6 @@
 use crate::world::inventory::item_stack::ItemStack;
 use bevy::prelude::Resource;
 
-// #[derive(Debug, Copy, Clone)]
-// pub struct Slot(pub Option<ItemStack>); // slots directly hold onto item stacks
-
 #[derive(Debug, Copy, Clone)]
 pub struct Slot {
     pub stack: Option<ItemStack>
@@ -66,9 +63,9 @@ impl Slot {
 
 #[derive(Resource)]
 pub struct SlotContainer {
-    slot_count: usize,
+    #[allow(dead_code)] slot_count: usize, // todo maybe remove? maybe use?
     // slots: [Option<ItemStack>; components::SLOT_COUNT],
-    slots: Vec<Slot>, // slot containers may have any variable amount of slots, and this optional item stacks
+    slots: Vec<Slot>, // slot containers may have any variable amount of slots, which each hold an optional item stack
 }
 
 impl Default for SlotContainer {
@@ -93,7 +90,7 @@ impl SlotContainer {
     }
 
     /// Gets a reference to the item in a specific slot
-    /// you can look but don't touch!
+    /// "look but don't touch!"
     pub fn get_slot(&self, index: usize) -> Option<&ItemStack> {
 
         // double-optional
@@ -104,7 +101,6 @@ impl SlotContainer {
     }
 
     /// Gets a mutable reference to the item in a specific slot
-    /// window shopping with a crowbar
     pub fn get_slot_mut(&mut self, index: usize) -> Option<&mut ItemStack> {
 
         // double-optional
@@ -115,7 +111,7 @@ impl SlotContainer {
     }
 
     /// Sets the contents of a specific slot
-    /// Overrides the original content, use with caution.
+    /// Overrides the original content
     pub fn set_slot(&mut self, index: usize, stack: Option<ItemStack>) {
 
         // NO! No silent failure. When we fail, we fail hard.

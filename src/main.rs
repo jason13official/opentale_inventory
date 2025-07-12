@@ -1,13 +1,18 @@
+mod systems;
+mod utils;
 mod world;
 
+use crate::systems::container::{handle_container_events, handle_ui_rebuild};
+use crate::systems::drag::{handle_left_drag_deposit, handle_right_drag_deposit};
+use crate::systems::input::{handle_keyboard_input, handle_left_clicks_updated, handle_right_clicks_updated};
+use crate::systems::visual::{update_held_item_display, update_slot_visuals};
+use crate::world::inventory::components::{DragState, HeldItem};
+use crate::world::inventory::containers::*;
+use crate::world::inventory::ui::*;
 use bevy::app::AppExit;
 use bevy::prelude::*;
 use bevy::window::{PrimaryWindow, WindowMode};
-use world::item::{items::*};
-use crate::world::inventory::components::{DragState, HeldItem};
-use crate::world::inventory::containers::*;
-use crate::world::inventory::systems::*;
-use crate::world::inventory::ui::*;
+use world::item::items::*;
 
 fn main() {
     for (id, item) in ITEMS {
@@ -48,11 +53,9 @@ fn main() {
         ).chain()) // Run these in order
 
         .add_systems(Update, (
-            // Left-click handling (now exactly like right-click)
-            handle_left_clicks_updated,    // Like handle_right_clicks_updated
-            handle_left_drag_deposit,      // Like handle_right_drag_deposit
-
-            // Right-click systems (unchanged)
+            handle_left_clicks_updated,
+            handle_left_drag_deposit,
+            
             handle_right_clicks_updated,
             handle_right_drag_deposit,
 

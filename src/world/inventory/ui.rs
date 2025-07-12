@@ -1,8 +1,8 @@
-use bevy::prelude::*;
+use super::components::*;
 use crate::world::inventory::containers::{ContainerLayout, ContainerManager, ContainerPosition, ContainerType, ContainerUI};
 use crate::world::inventory::item_stack::ItemStack;
 use crate::world::item::*;
-use super::components::*;
+use bevy::prelude::*;
 
 /// Sets up the initial game state and UI
 pub fn setup_game(

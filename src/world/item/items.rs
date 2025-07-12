@@ -1,5 +1,5 @@
+use crate::world::item::item::*;
 use opentale_inventory::*;
-use crate::world::item::{item::*};
 
 define_items! {
     DIAMOND => "diamond" as "Diamond": ItemProperties::new(),

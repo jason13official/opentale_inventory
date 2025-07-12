@@ -49,13 +49,3 @@ pub struct Item {
     /// The Item's underlying properties, such as maximum stack size, initial durability, etc.
     pub properties: ItemProperties
 }
-
-// impl Item {
-//     pub fn new(identifier: &'static str, display_name: &'static str, properties: ItemProperties) -> Self {
-//         Self {
-//             identifier,
-//             display_name,
-//             properties
-//         }
-//     }
-// }
