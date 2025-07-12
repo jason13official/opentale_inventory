@@ -1,4 +1,6 @@
 use bevy::prelude::*;
+use crate::world::inventory::inventory::SlotContainer;
+use crate::world::inventory::item_stack::ItemStack;
 use crate::world::item::*;
 use super::components::*;
 
@@ -6,7 +8,7 @@ use super::components::*;
 pub fn setup_game(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut inventory: ResMut<Inventory>,
+    mut inventory: ResMut<SlotContainer>,
 ) {
     // add some test items to the inventory
     inventory.set_slot(0, Some(ItemStack::new(items::APPLE, 16)));

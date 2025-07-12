@@ -1,12 +1,14 @@
 use bevy::prelude::*;
 use bevy::input::mouse::MouseButtonInput;
+use crate::world::inventory::inventory::SlotContainer;
+use crate::world::inventory::item_stack::ItemStack;
 use super::components::*;
 
 /// handle left-clicking on inventory slots
 pub fn handle_left_clicks(
     // query to check for buttons marked as InventorySlot and have been interacted with
     mut interaction_query: Query<(&Interaction, &InventorySlot), (Changed<Interaction>, With<Button>)>,
-    mut inventory: ResMut<Inventory>,
+    mut inventory: ResMut<SlotContainer>,
     mut held_item: ResMut<HeldItem>,
 ) {
 
@@ -23,7 +25,7 @@ pub fn handle_left_clicks(
 /// handle right-clicking on inventory slots, using manual cursor detection
 pub fn handle_right_clicks(
     mut mouse_events: EventReader<MouseButtonInput>,
-    mut inventory: ResMut<Inventory>,
+    mut inventory: ResMut<SlotContainer>,
     mut held_item: ResMut<HeldItem>,
     // query to get all inventory slots and their positions
     slot_query: Query<(&InventorySlot, &GlobalTransform, &Node)>,
@@ -47,7 +49,7 @@ pub fn handle_right_clicks(
 
 /// Update text and background color properties on slot
 pub fn update_slot_visuals(
-    inventory: Res<Inventory>, // read-only.
+    inventory: Res<SlotContainer>, // read-only.
     mut slot_query: Query<(&InventorySlot, &mut Children, &mut BackgroundColor)>, // all inventory slots and their text element children
     mut text_query: Query<&mut Text>, // all the text elements we're aware of
 ) {
@@ -162,11 +164,11 @@ fn find_slot_under_cursor(
 fn format_item_display(stack: &ItemStack) -> String {
     if stack.size > 1 {
         // multiple items, so we display the name and amount
-        format!("{}\n{}", stack.item.display_name, stack.size)
+        format!("{}\n{}", stack.item.unwrap().display_name, stack.size)
     }
     else {
         // just one item, so only display the name
-        stack.item.display_name.to_string()
+        stack.item.unwrap().display_name.to_string()
     }
 }
 
@@ -175,7 +177,7 @@ fn format_item_display(stack: &ItemStack) -> String {
 /// 2. Put down an item onto a slot (full hand + empty slot)
 /// 3. Swap items (full hand + full slot, different items)
 /// 4. Merge items (full hand + full slot, same items)
-fn process_left_click(slot_index: usize, inventory: &mut Inventory, held_item: &mut HeldItem) {
+fn process_left_click(slot_index: usize, inventory: &mut SlotContainer, held_item: &mut HeldItem) {
     // grab whatever is in the slot (this empties the slot)
     let slot_stack = inventory.take_slot(slot_index);
 
@@ -238,7 +240,7 @@ fn process_left_click(slot_index: usize, inventory: &mut Inventory, held_item: &
 /// - Full hand + compatible slot = place one item
 /// - Full hand + empty slot = place one item
 /// - Empty hand + empty slot = do nothing (obviously)
-fn process_right_click(slot_index: usize, inventory: &mut Inventory, held_item: &mut HeldItem) {
+fn process_right_click(slot_index: usize, inventory: &mut SlotContainer, held_item: &mut HeldItem) {
 
     // More pattern matching
     match (&mut held_item.stack, inventory.get_slot_mut(slot_index)) {
@@ -265,7 +267,7 @@ fn process_right_click(slot_index: usize, inventory: &mut Inventory, held_item: 
             if held_stack.can_merge_with(slot_stack) && held_stack.size > 0 {
 
                 // Is there room in the slot for one more item?
-                if slot_stack.size < slot_stack.item.properties.max_stack_size {
+                if slot_stack.size < slot_stack.item.unwrap().properties.max_stack_size {
 
                     // Transfer one item from hand to slot
                     held_stack.size -= 1;  // We have one less
@@ -294,7 +296,7 @@ fn process_right_click(slot_index: usize, inventory: &mut Inventory, held_item: 
 
                 // Create a new stack with just one item for the slot
                 inventory.set_slot(slot_index, Some(ItemStack::new(
-                    held_stack.item.clone(),
+                    held_stack.item.unwrap().clone(),
                     1
                 )));
             } else {

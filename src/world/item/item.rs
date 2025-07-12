@@ -1,7 +1,7 @@
 use std::num::ParseIntError;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct ItemProperties {
     pub max_stack_size: u32,
     pub durability: Option<u128>,
@@ -41,7 +41,7 @@ impl ItemProperties {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Item {
     /// The Item's internal ID used for lookup
     pub identifier: &'static str,
