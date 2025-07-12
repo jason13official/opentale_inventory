@@ -119,6 +119,16 @@ impl SlotContainer {
     /// Overrides the original content, use with caution.
     pub fn set_slot(&mut self, index: usize, stack: Option<ItemStack>) {
 
+        // NO! No silent failure. When we fail, we fail hard.
+        // // RIP original contents, they get over-written
+        // if let Some(slot) = self.slots.get_mut(index) {
+        //     *slot = Slot { stack };
+        //     Ok(())
+        // }
+        // else {
+        //     Err(format!("Index {} out of bounds for container with {} slots", index, self.slots.len()))
+        // }
+
         // does the slot exist? if so, RIP to its original contents
         if let Some(slot) = self.slots.get_mut(index) {
             *slot = Slot { stack };

@@ -5,13 +5,12 @@ use bevy::app::AppExit;
 use bevy::prelude::*;
 use bevy::window::{PrimaryWindow, WindowMode};
 use world::item::{items::*};
-use crate::world::inventory::components::{HeldItem};
-use crate::world::inventory::inventory::{SlotContainer};
+use crate::world::inventory::components::{DragState, HeldItem};
+use crate::world::inventory::containers::*;
 use crate::world::inventory::systems::*;
 use crate::world::inventory::ui::*;
 
 fn main() {
-
     for (id, item) in ITEMS {
         println!("{} -> {:?}", id, item.properties);
     }
@@ -22,7 +21,6 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "OpenTale Inventory Demo".into(),
-                // resolution: (1920.0, 1080.0).into(),
                 resolution: (1280.0, 720.0).into(),
                 position: WindowPosition::Centered(MonitorSelection::Primary),
                 ..default()
@@ -31,29 +29,45 @@ fn main() {
         }))
 
         .insert_resource(HeldItem::default())
-        .insert_resource(SlotContainer::new(9)) // our initial player hotbar inventory
+        .insert_resource(DragState::default())
+        .insert_resource(ContainerManager::default())
+
+        .add_event::<OpenInventoryEvent>()
+        .add_event::<CloseInventoryEvent>()
+        .add_event::<OpenChestEvent>()
+        .add_event::<CloseChestEvent>()
 
         .add_systems(Startup, setup_game)
 
-        .add_systems(Update, exit_on_esc)
+        .add_systems(Update, exit_handler)
         .add_systems(Update, toggle_fullscreen)
+
         .add_systems(Update, (
+            handle_keyboard_input,
+            handle_container_events,
+            handle_ui_rebuild,
+        ).chain()) // Run these in order
+
+        .add_systems(Update, (
+            // These can run in parallel (no .chain()) after UI is stable
             handle_left_clicks,
-            handle_right_clicks,
+            handle_right_clicks_updated,
+            handle_drag_deposit,
             update_slot_visuals,
             update_held_item_display,
-        ))
+        ).after(handle_ui_rebuild)) // run after UI is rebuilt
 
         .run();
 
     println!("Closed the inventory demo successfully.")
 }
 
-fn exit_on_esc(
+fn exit_handler(
     keys: Res<ButtonInput<KeyCode>>,
     mut exit: EventWriter<AppExit>,
+    container_manager: Res<ContainerManager>,
 ) {
-    if keys.just_pressed(KeyCode::Escape) {
+    if keys.just_pressed(KeyCode::Escape) && container_manager.ui_mode == UIMode::HotbarOnly {
         exit.send(AppExit);
     }
 }
