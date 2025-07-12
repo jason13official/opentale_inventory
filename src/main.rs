@@ -49,10 +49,16 @@ fn main() {
         ).chain()) // Run these in order
 
         .add_systems(Update, (
-            // These can run in parallel (no .chain()) after UI is stable
+            // Left-click handling
             handle_left_clicks,
+            handle_left_mouse_release,
+            handle_left_drag_movement,
+
+            // Right-click systems
             handle_right_clicks_updated,
-            handle_drag_deposit,
+            handle_right_drag_deposit,
+
+            // Visual updates
             update_slot_visuals,
             update_held_item_display,
         ).after(handle_ui_rebuild)) // run after UI is rebuilt
