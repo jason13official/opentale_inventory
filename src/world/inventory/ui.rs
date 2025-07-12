@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use crate::world::inventory::containers::{ContainerLayout, ContainerManager, ContainerType, ContainerUI};
 use crate::world::inventory::inventory::SlotContainer;
 use crate::world::inventory::item_stack::ItemStack;
 use crate::world::item::*;
@@ -8,20 +9,147 @@ use super::components::*;
 pub fn setup_game(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut inventory: ResMut<SlotContainer>,
+    mut container_manager: ResMut<ContainerManager>,
 ) {
-    // add some test items to the inventory
-    inventory.set_slot(0, Some(ItemStack::new(items::APPLE, 16)));
-    inventory.set_slot(1, Some(ItemStack::new(items::DIAMOND, 2)));
-    inventory.set_slot(2, Some(ItemStack::new(items::IRON_SWORD, 1)));
-    inventory.set_slot(3, Some(ItemStack::new(items::APPLE, 32)));
+    // Add some test items to different containers
 
-    // spawn the camera so we can actually see things
+    // Add items to hotbar
+    if let Some(hotbar) = container_manager.containers.get_mut(&ContainerType::Hotbar) {
+        hotbar.set_slot(0, Some(ItemStack::new(items::APPLE, 16)));
+        hotbar.set_slot(1, Some(ItemStack::new(items::DIAMOND, 2)));
+        hotbar.set_slot(2, Some(ItemStack::new(items::IRON_SWORD, 1)));
+    }
+
+    // Add items to player inventory
+    if let Some(inventory) = container_manager.containers.get_mut(&ContainerType::PlayerInventory) {
+        inventory.set_slot(0, Some(ItemStack::new(items::APPLE, 32)));
+        inventory.set_slot(1, Some(ItemStack::new(items::BREAD, 8)));
+        inventory.set_slot(9, Some(ItemStack::new(items::GLASS_BOTTLE, 12)));
+    }
+
+    // Spawn camera
     commands.spawn(Camera2dBundle::default());
 
-    // create our UI elements
-    create_inventory_ui(&mut commands, &asset_server);
+    // Create UI for the active container
+    create_container_ui(&mut commands, &asset_server, &container_manager.layout);
     create_held_item_ui(&mut commands, &asset_server);
+    create_hud(&mut commands, &asset_server);
+}
+
+pub fn create_container_ui(
+    commands: &mut Commands,
+    asset_server: &Res<AssetServer>,
+    layout: &ContainerLayout
+) {
+    let container_width = (layout.columns as f32) * (SLOT_SIZE + SLOT_MARGIN * 2.0);
+    let container_height = (layout.rows as f32) * (SLOT_SIZE + SLOT_MARGIN * 2.0);
+
+    commands
+        .spawn((
+            NodeBundle {
+                style: Style {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    flex_direction: FlexDirection::Column,
+                    ..default()
+                },
+                ..default()
+            },
+            ContainerUI { container_type: layout.container_type.clone() },
+        ))
+        .with_children(|parent| {
+            // Title
+            parent.spawn(TextBundle::from_section(
+                &layout.title,
+                TextStyle {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: 24.0,
+                    color: Color::WHITE,
+                },
+            ));
+
+            // Container background
+            parent
+                .spawn(NodeBundle {
+                    style: Style {
+                        width: Val::Px(container_width + 20.0),
+                        height: Val::Px(container_height + 20.0),
+                        flex_direction: FlexDirection::Column,
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        border: UiRect::all(Val::Px(2.0)),
+                        margin: UiRect::all(Val::Px(10.0)),
+                        ..default()
+                    },
+                    background_color: Color::rgb(0.2, 0.2, 0.2).into(),
+                    border_color: Color::rgb(0.6, 0.6, 0.6).into(),
+                    ..default()
+                })
+                .with_children(|parent| {
+                    // Create rows
+                    for row in 0..layout.rows {
+                        parent
+                            .spawn(NodeBundle {
+                                style: Style {
+                                    flex_direction: FlexDirection::Row,
+                                    justify_content: JustifyContent::Center,
+                                    ..default()
+                                },
+                                ..default()
+                            })
+                            .with_children(|parent| {
+                                // Create slots in this row
+                                for col in 0..layout.columns {
+                                    let slot_index = row * layout.columns + col;
+                                    if slot_index < layout.slot_count {
+                                        create_inventory_slot(parent, slot_index, asset_server);
+                                    }
+                                }
+                            });
+                    }
+                });
+        });
+}
+
+/// Create HUD with container switching buttons
+pub fn create_hud(commands: &mut Commands, asset_server: &Res<AssetServer>) {
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                justify_content: JustifyContent::SpaceBetween,
+                align_items: AlignItems::FlexStart,
+                flex_direction: FlexDirection::Column,
+                position_type: PositionType::Absolute,
+                ..default()
+            },
+            ..default()
+        })
+        .with_children(|parent| {
+            // Top bar with instructions
+            parent
+                .spawn(NodeBundle {
+                    style: Style {
+                        padding: UiRect::all(Val::Px(10.0)),
+                        ..default()
+                    },
+                    background_color: Color::rgba(0.0, 0.0, 0.0, 0.8).into(),
+                    ..default()
+                })
+                .with_children(|parent| {
+                    parent.spawn(TextBundle::from_section(
+                        "Tab: Switch Container | E: Open/Close Chest | Esc: Close Container",
+                        TextStyle {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: 16.0,
+                            color: Color::WHITE,
+                        },
+                    ));
+                });
+        });
 }
 
 /// Creates the main inventory UI

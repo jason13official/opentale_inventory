@@ -1,33 +1,127 @@
 use bevy::prelude::*;
 use bevy::input::mouse::MouseButtonInput;
+use crate::world::inventory::containers::{CloseChestEvent, ContainerManager, ContainerType, ContainerUI, OpenChestEvent, SwitchContainerEvent};
 use crate::world::inventory::inventory::SlotContainer;
 use crate::world::inventory::item_stack::ItemStack;
+use crate::world::inventory::ui::create_container_ui;
 use super::components::*;
 
-/// handle left-clicking on inventory slots
-pub fn handle_left_clicks(
-    // query to check for buttons marked as InventorySlot and have been interacted with
-    mut interaction_query: Query<(&Interaction, &InventorySlot), (Changed<Interaction>, With<Button>)>,
-    mut inventory: ResMut<SlotContainer>,
-    mut held_item: ResMut<HeldItem>,
+#[derive(Component)]
+pub struct UIRebuildNeeded;
+
+pub fn handle_container_events(
+    mut container_manager: ResMut<ContainerManager>,
+    mut switch_events: EventReader<SwitchContainerEvent>,
+    mut open_chest_events: EventReader<OpenChestEvent>,
+    mut close_chest_events: EventReader<CloseChestEvent>,
+    mut commands: Commands,
 ) {
+    let mut needs_rebuild = false;
 
-    // loop through our interaction query (interaction_query might return multiple interactions if buttons overlap)
-    for (interaction, slot) in &mut interaction_query {
+    // Handle container switching
+    for event in switch_events.read() {
+        container_manager.switch_to_container(event.container_type.clone());
+        needs_rebuild = true;
+    }
 
-        // if our interaction was clicking, process the click
-        if *interaction == Interaction::Pressed {
-            process_left_click(slot.index, &mut inventory, &mut held_item);
+    // Handle chest opening
+    for _event in open_chest_events.read() {
+        container_manager.open_chest();
+        needs_rebuild = true;
+    }
+
+    // Handle chest closing
+    for _event in close_chest_events.read() {
+        container_manager.close_chest();
+        needs_rebuild = true;
+    }
+
+    // Only trigger UI rebuild if needed
+    if needs_rebuild {
+        commands.spawn(UIRebuildNeeded);
+    }
+}
+
+pub fn handle_ui_rebuild(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    container_manager: Res<ContainerManager>,
+    ui_query: Query<Entity, With<ContainerUI>>,
+    rebuild_query: Query<Entity, With<UIRebuildNeeded>>,
+) {
+    if !rebuild_query.is_empty() {
+        // Despawn rebuild markers
+        for entity in rebuild_query.iter() {
+            commands.entity(entity).despawn();
+        }
+
+        // Despawn existing container UI
+        for entity in ui_query.iter() {
+            commands.entity(entity).despawn_recursive();
+        }
+
+        // Create new UI for the active container
+        create_container_ui(&mut commands, &asset_server, &container_manager.layout);
+    }
+}
+
+/// Handle keyboard input for container switching
+pub fn handle_keyboard_input(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut switch_events: EventWriter<SwitchContainerEvent>,
+    mut open_chest_events: EventWriter<OpenChestEvent>,
+    mut close_chest_events: EventWriter<CloseChestEvent>,
+    container_manager: Res<ContainerManager>,
+) {
+    // Tab key to switch between inventory and hotbar
+    if keys.just_pressed(KeyCode::Tab) {
+        let new_container = match container_manager.active_container {
+            ContainerType::Hotbar => ContainerType::PlayerInventory,
+            ContainerType::PlayerInventory => ContainerType::Hotbar,
+            ContainerType::Chest => ContainerType::PlayerInventory,
+        };
+        switch_events.send(SwitchContainerEvent { container_type: new_container });
+    }
+
+    // E key to open/close chest (for testing)
+    if keys.just_pressed(KeyCode::KeyE) {
+        match container_manager.active_container {
+            ContainerType::Chest => {
+                close_chest_events.send(CloseChestEvent);
+            }
+            _ => {
+                open_chest_events.send(OpenChestEvent);
+            }
+        }
+    }
+
+    // Escape key to close any open container
+    if keys.just_pressed(KeyCode::Escape) {
+        if container_manager.active_container == ContainerType::Chest {
+            close_chest_events.send(CloseChestEvent);
         }
     }
 }
 
-/// handle right-clicking on inventory slots, using manual cursor detection
+/// Updated left click handler
+pub fn handle_left_clicks(
+    mut interaction_query: Query<(&Interaction, &InventorySlot), (Changed<Interaction>, With<Button>)>,
+    mut container_manager: ResMut<ContainerManager>,
+    mut held_item: ResMut<HeldItem>,
+) {
+    for (interaction, slot) in &mut interaction_query {
+        if *interaction == Interaction::Pressed {
+            let active_container = container_manager.get_active_container_mut();
+            process_left_click(slot.index, active_container, &mut held_item);
+        }
+    }
+}
+
+/// Updated right click handler
 pub fn handle_right_clicks(
     mut mouse_events: EventReader<MouseButtonInput>,
-    mut inventory: ResMut<SlotContainer>,
+    mut container_manager: ResMut<ContainerManager>,
     mut held_item: ResMut<HeldItem>,
-    // query to get all inventory slots and their positions
     slot_query: Query<(&InventorySlot, &GlobalTransform, &Node)>,
     windows: Query<&Window>,
 ) {
@@ -35,56 +129,45 @@ pub fn handle_right_clicks(
     let Some(cursor_pos) = window.cursor_position() else { return; };
 
     for event in mouse_events.read() {
-
-        // are we clicking with the right mouse button?
         if event.button == MouseButton::Right && event.state.is_pressed() {
-
-            // if we're clicking on an inventory slot, process the click
             if let Some(slot_index) = find_slot_under_cursor(cursor_pos, &slot_query) {
-                process_right_click(slot_index, &mut inventory, &mut held_item);
+                let active_container = container_manager.get_active_container_mut();
+                process_right_click(slot_index, active_container, &mut held_item);
             }
         }
     }
 }
 
-/// Update text and background color properties on slot
+/// Updated slot visuals - only run when UI is stable
 pub fn update_slot_visuals(
-    inventory: Res<SlotContainer>, // read-only.
-    mut slot_query: Query<(&InventorySlot, &mut Children, &mut BackgroundColor)>, // all inventory slots and their text element children
-    mut text_query: Query<&mut Text>, // all the text elements we're aware of
+    container_manager: Res<ContainerManager>,
+    mut slot_query: Query<(&InventorySlot, &mut Children, &mut BackgroundColor)>,
+    mut text_query: Query<&mut Text>,
+    // Make sure we don't run during UI rebuild
+    ui_query: Query<Entity, With<ContainerUI>>,
+    rebuild_query: Query<Entity, With<UIRebuildNeeded>>,
 ) {
+    // Don't update visuals if UI is being rebuilt
+    if !rebuild_query.is_empty() || ui_query.is_empty() {
+        return;
+    }
 
-    // iterate over and update every slot
+    let active_container = container_manager.get_active_container();
+
     for (slot, children, mut bg_color) in &mut slot_query {
-
-        // make sure the slot actually has an item
-        if let Some(item) = inventory.get_slot(slot.index) {
-
-            // find the text element belonging to the slot (hard coded to 0 for now) TODO: add array of text elements to display? tooltips?
+        if let Some(item) = active_container.get_slot(slot.index) {
             if let Some(text_entity) = children.first() {
                 if let Ok(mut text) = text_query.get_mut(*text_entity) {
-
-                    // update the text to show what item this is and how many we have
                     text.sections[0].value = format_item_display(item);
                 }
             }
-
-            // Make the slot look "occupied" by changing its color
-            // Blue-ish because blue means "has stuff" apparently
-            // Don't ask me why, I didn't make the rules
             *bg_color = Color::rgb(0.3, 0.3, 0.7).into();
-        }
-        else {
-
-            // Clear text for empty slots
-
+        } else {
             if let Some(text_entity) = children.first() {
                 if let Ok(mut text) = text_query.get_mut(*text_entity) {
                     text.sections[0].value.clear();
                 }
             }
-
-            // Make the slot look "empty" with a boring gray color
             *bg_color = Color::rgb(0.4, 0.4, 0.4).into();
         }
     }
@@ -123,8 +206,6 @@ pub fn update_held_item_display(
     }
 }
 
-
-
 /// Finds which inventory slot is under the cursor position
 ///
 /// CAUTION: MATH, RECTANGLES, GEOMETRIC HORROR
@@ -157,8 +238,6 @@ fn find_slot_under_cursor(
     // we checked every slot, and the cursor wasn't over any of them.
     None
 }
-
-
 
 /// Formats an item stack for display (handles singular vs plural)
 fn format_item_display(stack: &ItemStack) -> String {

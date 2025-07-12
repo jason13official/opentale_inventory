@@ -6,6 +6,7 @@ use bevy::prelude::*;
 use bevy::window::{PrimaryWindow, WindowMode};
 use world::item::{items::*};
 use crate::world::inventory::components::{HeldItem};
+use crate::world::inventory::containers::{CloseChestEvent, ContainerManager, OpenChestEvent, SwitchContainerEvent};
 use crate::world::inventory::inventory::{SlotContainer};
 use crate::world::inventory::systems::*;
 use crate::world::inventory::ui::*;
@@ -31,18 +32,31 @@ fn main() {
         }))
 
         .insert_resource(HeldItem::default())
-        .insert_resource(SlotContainer::new(9)) // our initial player hotbar inventory
+        .insert_resource(ContainerManager::default())
+
+        .add_event::<SwitchContainerEvent>()
+        .add_event::<OpenChestEvent>()
+        .add_event::<CloseChestEvent>()
 
         .add_systems(Startup, setup_game)
 
         .add_systems(Update, exit_on_esc)
         .add_systems(Update, toggle_fullscreen)
         .add_systems(Update, (
+            // Handle input first
+            handle_keyboard_input,
+            // Then process container events
+            handle_container_events,
+            // Then handle UI rebuilding
+            handle_ui_rebuild,
+        ).chain()) // Run these in order
+        .add_systems(Update, (
+            // These can run in parallel after UI is stable
             handle_left_clicks,
             handle_right_clicks,
             update_slot_visuals,
             update_held_item_display,
-        ))
+        ).after(handle_ui_rebuild)) // Run after UI rebuild is complete
 
         .run();
 
