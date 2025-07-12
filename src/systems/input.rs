@@ -1,10 +1,11 @@
 use crate::utils::item_operations::{process_left_click, process_right_click};
 use crate::utils::slot_finder::find_slot_under_cursor;
 use crate::world::inventory::components::{DragState, HeldItem, InventorySlot, SelectedHotbarSlot};
-use crate::world::inventory::containers::{CloseChestEvent, CloseInventoryEvent, ContainerManager, OpenChestEvent, OpenInventoryEvent};
+use crate::world::inventory::containers::{CloseChestEvent, CloseInventoryEvent, ContainerManager, OpenChestEvent, OpenInventoryEvent, SwitchChestEvent};
 use bevy::input::mouse::{MouseButtonInput, MouseWheel};
 use bevy::input::{ButtonInput, ButtonState};
-use bevy::prelude::{EventReader, EventWriter, GlobalTransform, KeyCode, MouseButton, Node, Query, Res, ResMut, Window};
+use bevy::prelude::{EventReader, EventWriter, GlobalTransform, KeyCode, MouseButton, Node, Query, Res, ResMut, Window, Interaction, Changed, With};
+use crate::world::inventory::ui::ChestButton;
 
 pub fn handle_keyboard_input(
     keys: Res<ButtonInput<KeyCode>>,
@@ -22,7 +23,7 @@ pub fn handle_keyboard_input(
             crate::world::inventory::containers::UIMode::InventoryOpen => {
                 close_inventory_events.send(CloseInventoryEvent);
             }
-            crate::world::inventory::containers::UIMode::ChestOpen => {
+            crate::world::inventory::containers::UIMode::ChestOpen(_) => {
                 close_inventory_events.send(CloseInventoryEvent);
             }
         }
@@ -30,18 +31,18 @@ pub fn handle_keyboard_input(
 
     if keys.just_pressed(KeyCode::KeyC) {
         match container_manager.ui_mode {
-            crate::world::inventory::containers::UIMode::ChestOpen => {
+            crate::world::inventory::containers::UIMode::ChestOpen(_) => {
                 close_chest_events.send(CloseChestEvent);
             }
             _ => {
-                open_chest_events.send(OpenChestEvent);
+                open_chest_events.send(OpenChestEvent { chest_id: 1 }); // Default to chest 1
             }
         }
     }
 
     if keys.just_pressed(KeyCode::Escape) {
         match container_manager.ui_mode {
-            crate::world::inventory::containers::UIMode::ChestOpen => {
+            crate::world::inventory::containers::UIMode::ChestOpen(_) => {
                 close_chest_events.send(CloseChestEvent);
             }
             crate::world::inventory::containers::UIMode::InventoryOpen => {
@@ -137,6 +138,19 @@ pub fn handle_right_clicks_updated(
                     }
                 }
             }
+        }
+    }
+}
+
+pub fn handle_chest_button_clicks(
+    mut interaction_query: Query<(&Interaction, &ChestButton), (Changed<Interaction>, With<ChestButton>)>,
+    mut switch_chest_events: EventWriter<SwitchChestEvent>,
+) {
+    for (interaction, chest_button) in &mut interaction_query {
+        if *interaction == Interaction::Pressed {
+            switch_chest_events.send(SwitchChestEvent {
+                chest_id: chest_button.chest_id,
+            });
         }
     }
 }

@@ -7,4 +7,5 @@ define_items! {
     APPLE => "apple" as "Apple": ItemProperties::new().consumable(true),
     GLASS_BOTTLE => "glass_bottle" as "Glass Bottle": ItemProperties::new().max_stack_size(16).offhand_equipable(true), // todo no need to specify true when calling implies the same thing
     BREAD => "bread" as "Bread": ItemProperties::new().consumable(true),
+    EMERALD => "emerald" as "Emerald": ItemProperties::new(),
 }

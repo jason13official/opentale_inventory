@@ -26,6 +26,24 @@ pub fn setup_game(
         inventory.set_slot(9, Some(ItemStack::new(items::GLASS_BOTTLE, 12)));
     }
 
+    // Add different items to different chests
+    if let Some(chest1) = container_manager.containers.get_mut(&ContainerType::Chest(1)) {
+        chest1.set_slot(0, Some(ItemStack::new(items::DIAMOND, 5)));
+        chest1.set_slot(1, Some(ItemStack::new(items::IRON_SWORD, 1)));
+        chest1.set_slot(2, Some(ItemStack::new(items::EMERALD, 3)));
+    }
+
+    if let Some(chest2) = container_manager.containers.get_mut(&ContainerType::Chest(2)) {
+        chest2.set_slot(0, Some(ItemStack::new(items::BREAD, 64)));
+        chest2.set_slot(1, Some(ItemStack::new(items::APPLE, 64)));
+        chest2.set_slot(2, Some(ItemStack::new(items::GLASS_BOTTLE, 32)));
+    }
+
+    if let Some(chest3) = container_manager.containers.get_mut(&ContainerType::Chest(3)) {
+        chest3.set_slot(0, Some(ItemStack::new(items::IRON_SWORD, 3)));
+        chest3.set_slot(1, Some(ItemStack::new(items::DIAMOND, 10)));
+    }
+
     // Spawn camera
     commands.spawn(Camera2dBundle::default());
 
@@ -47,7 +65,7 @@ pub fn create_minecraft_ui(
             style: Style {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
-                flex_direction: FlexDirection::Column,
+                flex_direction: FlexDirection::Row,
                 justify_content: JustifyContent::SpaceBetween,
                 align_items: AlignItems::Center,
                 ..default()
@@ -55,58 +73,76 @@ pub fn create_minecraft_ui(
             ..default()
         })
         .with_children(|parent| {
+            // Left side - chest selection panel
+            create_chest_selection_panel(parent, asset_server, container_manager);
 
-            // Middle section (for chests and player inventory grouped together)
+            // Main UI area
             parent
                 .spawn(NodeBundle {
                     style: Style {
                         width: Val::Percent(100.0),
+                        height: Val::Percent(100.0),
                         flex_direction: FlexDirection::Column,
-                        justify_content: JustifyContent::FlexEnd,
+                        justify_content: JustifyContent::SpaceBetween,
                         align_items: AlignItems::Center,
-                        flex_grow: 1.0,
-                        margin: UiRect::bottom(Val::Px(10.0)), // Small gap above hotbar
                         ..default()
                     },
                     ..default()
                 })
                 .with_children(|parent| {
 
-                    // Create top containers (chest, etc.) - positioned above player inventory
-                    for layout in &container_manager.layouts {
-                        if matches!(layout.position, ContainerPosition::Top) {
-                            create_container_ui(parent, asset_server, layout);
-                        }
-                    }
+                    // Middle section (for chests and player inventory grouped together)
+                    parent
+                        .spawn(NodeBundle {
+                            style: Style {
+                                width: Val::Percent(100.0),
+                                flex_direction: FlexDirection::Column,
+                                justify_content: JustifyContent::FlexEnd,
+                                align_items: AlignItems::Center,
+                                flex_grow: 1.0,
+                                margin: UiRect::bottom(Val::Px(10.0)), // Small gap above hotbar
+                                ..default()
+                            },
+                            ..default()
+                        })
+                        .with_children(|parent| {
 
-                    // Create center containers (player inventory) - positioned below chests
-                    for layout in &container_manager.layouts {
-                        if matches!(layout.position, ContainerPosition::Center) {
-                            create_container_ui(parent, asset_server, layout);
-                        }
-                    }
-                });
+                            // Create top containers (chest, etc.) - positioned above player inventory
+                            for layout in &container_manager.layouts {
+                                if matches!(layout.position, ContainerPosition::Top) {
+                                    create_container_ui(parent, asset_server, layout);
+                                }
+                            }
 
-            // Bottom section (for hotbar)
-            parent
-                .spawn(NodeBundle {
-                    style: Style {
-                        width: Val::Percent(100.0),
-                        flex_direction: FlexDirection::Column,
-                        justify_content: JustifyContent::FlexEnd,
-                        align_items: AlignItems::Center,
-                        margin: UiRect::bottom(Val::Px(20.0)),
-                        ..default()
-                    },
-                    ..default()
-                })
-                .with_children(|parent| {
-                    // Create bottom containers (hotbar)
-                    for layout in &container_manager.layouts {
-                        if matches!(layout.position, ContainerPosition::Bottom) {
-                            create_container_ui(parent, asset_server, layout);
-                        }
-                    }
+                            // Create center containers (player inventory) - positioned below chests
+                            for layout in &container_manager.layouts {
+                                if matches!(layout.position, ContainerPosition::Center) {
+                                    create_container_ui(parent, asset_server, layout);
+                                }
+                            }
+                        });
+
+                    // Bottom section (for hotbar)
+                    parent
+                        .spawn(NodeBundle {
+                            style: Style {
+                                width: Val::Percent(100.0),
+                                flex_direction: FlexDirection::Column,
+                                justify_content: JustifyContent::FlexEnd,
+                                align_items: AlignItems::Center,
+                                margin: UiRect::bottom(Val::Px(20.0)),
+                                ..default()
+                            },
+                            ..default()
+                        })
+                        .with_children(|parent| {
+                            // Create bottom containers (hotbar)
+                            for layout in &container_manager.layouts {
+                                if matches!(layout.position, ContainerPosition::Bottom) {
+                                    create_container_ui(parent, asset_server, layout);
+                                }
+                            }
+                        });
                 });
         });
 }
@@ -341,4 +377,81 @@ pub fn create_selected_item_ui(commands: &mut Commands, asset_server: &Res<Asset
                     ));
                 });
         });
+}
+
+/// Creates the left-side chest selection panel
+pub fn create_chest_selection_panel(
+    parent: &mut ChildBuilder,
+    asset_server: &Res<AssetServer>,
+    container_manager: &ContainerManager,
+) {
+    parent
+        .spawn(NodeBundle {
+            style: Style {
+                width: Val::Px(80.0),
+                height: Val::Percent(100.0),
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                padding: UiRect::all(Val::Px(10.0)),
+                ..default()
+            },
+            background_color: Color::rgba(0.1, 0.1, 0.1, 0.8).into(),
+            ..default()
+        })
+        .with_children(|parent| {
+            // Title
+            parent.spawn(TextBundle::from_section(
+                "Chests",
+                TextStyle {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: 14.0,
+                    color: Color::WHITE,
+                },
+            ));
+
+            // Chest buttons
+            for &chest_id in &container_manager.available_chests {
+                let is_active = container_manager.active_chest_id == Some(chest_id);
+                let button_color = if is_active {
+                    Color::rgb(0.3, 0.6, 0.3) // Green for active
+                } else {
+                    Color::rgb(0.4, 0.4, 0.4) // Gray for inactive
+                };
+
+                parent
+                    .spawn((
+                        ButtonBundle {
+                            style: Style {
+                                width: Val::Px(60.0),
+                                height: Val::Px(60.0),
+                                margin: UiRect::all(Val::Px(5.0)),
+                                justify_content: JustifyContent::Center,
+                                align_items: AlignItems::Center,
+                                border: UiRect::all(Val::Px(2.0)),
+                                ..default()
+                            },
+                            background_color: button_color.into(),
+                            border_color: Color::rgb(0.6, 0.6, 0.6).into(),
+                            ..default()
+                        },
+                        ChestButton { chest_id },
+                    ))
+                    .with_children(|parent| {
+                        parent.spawn(TextBundle::from_section(
+                            chest_id.to_string(),
+                            TextStyle {
+                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                font_size: 18.0,
+                                color: Color::WHITE,
+                            },
+                        ));
+                    });
+            }
+        });
+}
+
+#[derive(Component)]
+pub struct ChestButton {
+    pub chest_id: u32,
 }

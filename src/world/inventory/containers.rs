@@ -6,7 +6,7 @@ use bevy::prelude::*;
 pub enum ContainerType {
     PlayerInventory,
     Hotbar,
-    Chest,
+    Chest(u32), // Now takes a chest ID
     // Add more as needed: Furnace, CraftingTable, etc.
 }
 
@@ -15,7 +15,7 @@ pub enum ContainerType {
 pub enum UIMode {
     HotbarOnly,           // Only hotbar visible (default game state)
     InventoryOpen,        // Hotbar + Player inventory visible
-    ChestOpen,           // Hotbar + Player inventory + Chest visible
+    ChestOpen(u32),      // Hotbar + Player inventory + Specific chest visible
 }
 
 // Container layout configuration
@@ -59,13 +59,13 @@ impl ContainerLayout {
         }
     }
 
-    pub fn chest() -> Self {
+    pub fn chest(chest_id: u32) -> Self {
         Self {
-            container_type: ContainerType::Chest,
+            container_type: ContainerType::Chest(chest_id),
             slot_count: 27,
             rows: 3,
             columns: 9,
-            title: "Chest".to_string(),
+            title: format!("Chest {}", chest_id),
             position: ContainerPosition::Top,
         }
     }
@@ -77,6 +77,8 @@ pub struct ContainerManager {
     pub containers: std::collections::HashMap<ContainerType, SlotContainer>,
     pub ui_mode: UIMode,
     pub layouts: Vec<ContainerLayout>, // All active layouts to display
+    pub available_chests: Vec<u32>, // List of available chest IDs
+    pub active_chest_id: Option<u32>, // Currently opened chest
 }
 
 impl Default for ContainerManager {
@@ -87,10 +89,18 @@ impl Default for ContainerManager {
         containers.insert(ContainerType::PlayerInventory, SlotContainer::new(27));
         containers.insert(ContainerType::Hotbar, SlotContainer::new(9));
 
+        // Create initial chests
+        let available_chests = vec![1, 2, 3];
+        for &chest_id in &available_chests {
+            containers.insert(ContainerType::Chest(chest_id), SlotContainer::new(27));
+        }
+
         Self {
             containers,
             ui_mode: UIMode::HotbarOnly,
-            layouts: vec![ContainerLayout::hotbar()], // Start with just hotbar
+            layouts: vec![ContainerLayout::hotbar()],
+            available_chests,
+            active_chest_id: None,
         }
     }
 }
@@ -109,24 +119,35 @@ impl ContainerManager {
         self.layouts = vec![ContainerLayout::hotbar()];
     }
 
-    pub fn open_chest(&mut self) {
-        // Create a new chest if it doesn't exist
-        if !self.containers.contains_key(&ContainerType::Chest) {
-            self.containers.insert(ContainerType::Chest, SlotContainer::new(27));
+    pub fn open_chest(&mut self, chest_id: u32) {
+        // Create chest if it doesn't exist
+        let chest_type = ContainerType::Chest(chest_id);
+        if !self.containers.contains_key(&chest_type) {
+            self.containers.insert(chest_type.clone(), SlotContainer::new(27));
+            if !self.available_chests.contains(&chest_id) {
+                self.available_chests.push(chest_id);
+            }
         }
 
-        self.ui_mode = UIMode::ChestOpen;
+        self.active_chest_id = Some(chest_id);
+        self.ui_mode = UIMode::ChestOpen(chest_id);
         self.layouts = vec![
-            ContainerLayout::chest(),
+            ContainerLayout::chest(chest_id),
             ContainerLayout::player_inventory(),
             ContainerLayout::hotbar(),
         ];
     }
 
     pub fn close_chest(&mut self) {
-        // Always go back to hotbar when closing chests (like Minecraft)
+        self.active_chest_id = None;
         self.ui_mode = UIMode::HotbarOnly;
         self.layouts = vec![ContainerLayout::hotbar()];
+    }
+
+    pub fn switch_chest(&mut self, chest_id: u32) {
+        if self.available_chests.contains(&chest_id) {
+            self.open_chest(chest_id);
+        }
     }
 
     pub fn get_container(&self, container_type: &ContainerType) -> Option<&SlotContainer> {
@@ -152,7 +173,14 @@ pub struct OpenInventoryEvent;
 pub struct CloseInventoryEvent;
 
 #[derive(Event)]
-pub struct OpenChestEvent;
+pub struct OpenChestEvent {
+    pub chest_id: u32,
+}
 
 #[derive(Event)]
 pub struct CloseChestEvent;
+
+#[derive(Event)]
+pub struct SwitchChestEvent {
+    pub chest_id: u32,
+}
