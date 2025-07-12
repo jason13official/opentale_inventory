@@ -436,6 +436,9 @@ pub fn handle_drag_deposit(
     let Ok(window) = windows.get_single() else { return; };
     let Some(cursor_pos) = window.cursor_position() else { return; };
 
+    // Reset the frame flag at the start of each frame
+    drag_state.was_dragging_this_frame = false;
+
     // Handle mouse button events
     for event in mouse_events.read() {
         if event.button == MouseButton::Right {
@@ -448,6 +451,11 @@ pub fn handle_drag_deposit(
                     }
                 }
                 ButtonState::Released => {
+                    // Mark that we were dragging when the button was released
+                    if drag_state.is_right_dragging {
+                        drag_state.was_dragging_this_frame = true;
+                    }
+
                     // Stop dragging
                     drag_state.is_right_dragging = false;
                     drag_state.last_hovered_slot = None;
@@ -490,7 +498,6 @@ fn deposit_single_item(slot_index: usize, container: &mut SlotContainer, held_it
 
             // Create a new stack with just one item for the slot
             let single_item = ItemStack::new(held_stack.item.unwrap(), 1);
-            
             container.set_slot(slot_index, Some(single_item));
 
             // Clear held item if we just placed our last one
@@ -535,7 +542,8 @@ pub fn handle_right_clicks_updated(
     for event in mouse_events.read() {
         if event.button == MouseButton::Right && event.state == ButtonState::Released {
             // Only process single right-clicks (not drag releases)
-            if !drag_state.is_right_dragging {
+            // Check both current state and if we were dragging this frame
+            if !drag_state.is_right_dragging && !drag_state.was_dragging_this_frame {
                 if let Some(slot) = find_slot_under_cursor(cursor_pos, &slot_query) {
                     if let Some(container) = container_manager.get_container_mut(&slot.container_type) {
                         process_right_click(slot.index, container, &mut held_item);

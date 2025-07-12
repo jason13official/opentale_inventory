@@ -28,5 +28,6 @@ pub struct HeldItem {
 #[derive(Resource, Default)]
 pub struct DragState {
     pub is_right_dragging: bool,
+    pub was_dragging_this_frame: bool,  // Track if we were dragging when button was released
     pub last_hovered_slot: Option<(ContainerType, usize)>,
 }
