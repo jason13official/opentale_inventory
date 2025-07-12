@@ -124,20 +124,9 @@ impl ContainerManager {
     }
 
     pub fn close_chest(&mut self) {
-        // When closing chest, go back to inventory if it was open, otherwise just hotbar
-        match self.ui_mode {
-            UIMode::ChestOpen => {
-                self.ui_mode = UIMode::InventoryOpen;
-                self.layouts = vec![
-                    ContainerLayout::player_inventory(),
-                    ContainerLayout::hotbar(),
-                ];
-            }
-            _ => {
-                self.ui_mode = UIMode::HotbarOnly;
-                self.layouts = vec![ContainerLayout::hotbar()];
-            }
-        }
+        // Always go back to hotbar when closing chests (like Minecraft)
+        self.ui_mode = UIMode::HotbarOnly;
+        self.layouts = vec![ContainerLayout::hotbar()];
     }
 
     pub fn get_container(&self, container_type: &ContainerType) -> Option<&SlotContainer> {
