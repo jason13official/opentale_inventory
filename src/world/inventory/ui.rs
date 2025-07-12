@@ -81,9 +81,10 @@ pub fn create_minecraft_ui(
                     style: Style {
                         width: Val::Percent(100.0),
                         flex_direction: FlexDirection::Column,
-                        justify_content: JustifyContent::Center,
+                        justify_content: JustifyContent::FlexEnd,
                         align_items: AlignItems::Center,
                         flex_grow: 1.0,
+                        margin: UiRect::bottom(Val::Px(10.0)), // Small gap above hotbar
                         ..default()
                     },
                     ..default()
