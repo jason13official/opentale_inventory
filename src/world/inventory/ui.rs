@@ -237,6 +237,7 @@ pub fn create_hud(commands: &mut Commands, asset_server: &Res<AssetServer>) {
                 position_type: PositionType::Absolute,
                 ..default()
             },
+            z_index: ZIndex::Global(1000),
             ..default()
         })
         .with_children(|parent| {
