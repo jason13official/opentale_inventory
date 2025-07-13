@@ -47,5 +47,8 @@ pub struct Item {
     pub display_name: &'static str,
 
     /// The Item's underlying properties, such as maximum stack size, initial durability, etc.
-    pub properties: ItemProperties
+    pub properties: ItemProperties,
+
+    /// The Item's sprite coordinates in the spritesheet (x, y) where each is 0-7
+    pub sprite_coords: (u8, u8),
 }

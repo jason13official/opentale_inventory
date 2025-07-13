@@ -1,4 +1,4 @@
-use crate::world::inventory::containers::{CloseChestEvent, CloseInventoryEvent, ContainerManager, ContainerUI, OpenChestEvent, OpenInventoryEvent};
+use crate::world::inventory::containers::{CloseChestEvent, CloseInventoryEvent, ContainerManager, ContainerUI, OpenChestEvent, OpenInventoryEvent, SwitchChestEvent};
 use crate::world::inventory::ui::create_minecraft_ui;
 use bevy::asset::AssetServer;
 use bevy::prelude::{Commands, Component, DespawnRecursiveExt, Entity, EventReader, Query, Res, ResMut, With};
@@ -12,6 +12,7 @@ pub fn handle_container_events(
     mut close_inventory_events: EventReader<CloseInventoryEvent>,
     mut open_chest_events: EventReader<OpenChestEvent>,
     mut close_chest_events: EventReader<CloseChestEvent>,
+    mut switch_chest_events: EventReader<SwitchChestEvent>,
     mut commands: Commands,
 ) {
     let mut needs_rebuild = false;
@@ -26,13 +27,18 @@ pub fn handle_container_events(
         needs_rebuild = true;
     }
 
-    for _event in open_chest_events.read() {
-        container_manager.open_chest();
+    for event in open_chest_events.read() {
+        container_manager.open_chest(event.chest_id);
         needs_rebuild = true;
     }
 
     for _event in close_chest_events.read() {
         container_manager.close_chest();
+        needs_rebuild = true;
+    }
+
+    for event in switch_chest_events.read() {
+        container_manager.switch_chest(event.chest_id);
         needs_rebuild = true;
     }
 

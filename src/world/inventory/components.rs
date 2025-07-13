@@ -48,6 +48,12 @@ impl Default for SelectedHotbarSlot {
 #[derive(Component)]
 pub struct SelectedItemDisplay;
 
+#[derive(Component)]
+pub struct ItemSprite;
+
+#[derive(Component)]
+pub struct ItemCountText;
+
 impl DragState {
     pub fn add_left_drag_slot(&mut self, container_type: ContainerType, index: usize) {
         let slot = (container_type, index);

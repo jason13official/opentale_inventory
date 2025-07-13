@@ -4,7 +4,7 @@ mod world;
 
 use crate::systems::container::{handle_container_events, handle_ui_rebuild};
 use crate::systems::drag::{handle_left_drag_deposit, handle_right_drag_deposit};
-use crate::systems::input::{handle_keyboard_input, handle_left_clicks_updated, handle_right_clicks_updated, handle_hotbar_selection};
+use crate::systems::input::{handle_keyboard_input, handle_left_clicks_updated, handle_right_clicks_updated, handle_hotbar_selection, handle_chest_button_clicks};
 use crate::systems::visual::{update_held_item_display, update_slot_visuals, update_selected_item_display};
 use crate::world::inventory::components::{DragState, HeldItem, SelectedHotbarSlot};
 use crate::world::inventory::containers::*;
@@ -19,7 +19,7 @@ fn main() {
         println!("{} -> {:?}", id, item.properties);
     }
 
-    println!("DIAMOND durability: {:?}", DIAMOND.properties.durability);
+    println!("DIAMOND durability: {:?}", RING.properties.durability);
 
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -41,6 +41,7 @@ fn main() {
         .add_event::<CloseInventoryEvent>()
         .add_event::<OpenChestEvent>()
         .add_event::<CloseChestEvent>()
+        .add_event::<SwitchChestEvent>()
 
         .add_systems(Startup, setup_game)
 
@@ -60,6 +61,8 @@ fn main() {
             
             handle_right_clicks_updated,
             handle_right_drag_deposit,
+
+            handle_chest_button_clicks,
 
             // Visual updates
             update_slot_visuals,

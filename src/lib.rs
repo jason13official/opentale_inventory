@@ -43,6 +43,12 @@ macro_rules! define_items {
             // display_name:literal means "capture a string literal and call it display_name"
             $display_name:literal
 
+            // "@" separates display name from sprite coordinates
+            @
+
+            // sprite coordinates as (x, y) tuple - use tt (token tree) instead of expr
+            $sprite_coords:tt
+
             // ":" is literal text
             :
 
@@ -66,11 +72,13 @@ macro_rules! define_items {
             // $item expands to the captured identifier (like DIAMOND)
             // $identifier expands to the captured string literal (like "diamond")
             // $display_name expands to the display string (like "Diamond")
+            // $sprite_coords expands to the sprite coordinates (like (0, 0))
             // $props expands to the captured expression (like ItemProperties::new())
             pub const $item: Item = Item {
                 identifier: $identifier,
                 display_name: $display_name,
-                properties: $props
+                properties: $props,
+                sprite_coords: $sprite_coords,
             };
         )*
 
