@@ -210,13 +210,37 @@ pub fn update_slot_visuals(
             let is_left_dragging = drag_state.is_left_dragging;
             let is_right_dragging = drag_state.is_right_dragging;
             let is_dragging = is_left_dragging || is_right_dragging;
+
+            // Set border color based on state priority
+            // Only show drag highlighting if multiple slots are involved
+            let show_drag_highlighting = (is_left_dragging && drag_state.left_drag_slots.len() > 1) ||
+                (is_right_dragging && drag_state.right_drag_slots.len() > 1);
             
             // Calculate drag preview if dragging
-            if is_dragging && held_item.stack.is_some() {
+            if is_dragging && held_item.stack.is_some() && show_drag_highlighting {
                 let preview_count = if is_left_dragging {
                     calculate_drag_preview(&current_slot, &drag_state, &held_item, &container_manager)
                 } else if is_right_dragging && is_right_drag_target {
-                    1 // Right-click drag always deposits 1 item per slot
+                    // Only show preview if the slot can actually accept the item
+                    if let Some(held_stack) = &held_item.stack {
+                        if let Some(container) = container_manager.get_container(&slot.container_type) {
+                            match container.get_slot(slot.index) {
+                                None => 1, // Empty slot can accept 1 item
+                                Some(existing_stack) => {
+                                    if held_stack.can_merge_with(existing_stack) &&
+                                        existing_stack.size < existing_stack.item.unwrap().properties.max_stack_size {
+                                        1 // Can accept 1 more item
+                                    } else {
+                                        0 // Can't accept items
+                                    }
+                                }
+                            }
+                        } else {
+                            0
+                        }
+                    } else {
+                        0
+                    }
                 } else {
                     0
                 };
@@ -236,7 +260,8 @@ pub fn update_slot_visuals(
                         }
                     }
                 }
-            } else {
+            }
+            else {
                 // Clear preview text when not dragging
                 if let Some(preview_ent) = preview_text_entity {
                     if let Ok(mut preview_text) = preview_text_query.get_mut(preview_ent) {
@@ -244,12 +269,11 @@ pub fn update_slot_visuals(
                     }
                 }
             }
-
-            // Set border color based on state priority
+            
             if is_selected {
                 *border_color = Color::rgb(1.0, 1.0, 0.0).into(); // Yellow for selected (highest priority)
             }
-            else if is_currently_hovered && is_dragging {
+            else if is_currently_hovered && is_dragging && show_drag_highlighting {
                 if is_right_dragging {
                     *border_color = Color::rgb(0.0, 0.8, 1.0).into(); // Light blue for right-click hover
                 }
@@ -257,11 +281,38 @@ pub fn update_slot_visuals(
                     *border_color = Color::rgb(0.0, 1.0, 0.0).into(); // Green for left-click hover
                 }
             }
-            else if is_left_drag_target && is_left_dragging {
-                *border_color = Color::rgb(0.0, 0.8, 0.0).into(); // Darker green for left-drag target slots
+            else if is_left_drag_target && is_left_dragging && show_drag_highlighting {
+                // Only highlight if the slot can actually accept items from the drag operation
+                let preview_count = calculate_drag_preview(&current_slot, &drag_state, &held_item, &container_manager);
+                if preview_count > 0 {
+                    *border_color = Color::rgb(0.0, 0.8, 0.0).into(); // Darker green for left-drag target slots
+                } else {
+                    *border_color = Color::rgb(0.6, 0.6, 0.6).into(); // Default border for invalid slots
+                }
             }
-            else if is_right_drag_target && is_right_dragging {
-                *border_color = Color::rgb(0.0, 0.6, 0.8).into(); // Darker blue for right-drag target slots
+            else if is_right_drag_target && is_right_dragging && show_drag_highlighting {
+                // Only highlight if the slot can actually accept the item
+                let can_accept = if let Some(held_stack) = &held_item.stack {
+                    if let Some(container) = container_manager.get_container(&slot.container_type) {
+                        match container.get_slot(slot.index) {
+                            None => true, // Empty slot can accept items
+                            Some(existing_stack) => {
+                                held_stack.can_merge_with(existing_stack) &&
+                                    existing_stack.size < existing_stack.item.unwrap().properties.max_stack_size
+                            }
+                        }
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                };
+                
+                if can_accept {
+                    *border_color = Color::rgb(0.0, 0.6, 0.8).into(); // Darker blue for right-drag target slots
+                } else {
+                    *border_color = Color::rgb(0.6, 0.6, 0.6).into(); // Default border for invalid slots
+                }
             }
             else {
                 *border_color = Color::rgb(0.6, 0.6, 0.6).into(); // Default border
