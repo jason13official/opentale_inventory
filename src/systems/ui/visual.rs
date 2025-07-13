@@ -1,4 +1,4 @@
-use crate::systems::container::UIRebuildNeeded;
+use crate::systems::ui::container::UIRebuildNeeded;
 use crate::world::inventory::components::{HeldItem, HeldItemDisplay, InventorySlot, SelectedHotbarSlot, SelectedItemDisplay, ItemSprite, ItemCountText, DragState, SlotPreviewText};
 use crate::world::inventory::containers::{ContainerManager, ContainerType, ContainerUI};
 use crate::world::inventory::systems::format_item_display;

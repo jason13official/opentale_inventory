@@ -1,5 +1,5 @@
 use crate::world::item::item::*;
-use opentale_inventory::*;
+use crate::define_items;
 
 define_items! {
     BOW => "bow" as "Bow" @ (0, 2): ItemProperties::new().durability(120).max_stack_size(1),
