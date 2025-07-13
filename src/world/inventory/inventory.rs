@@ -138,4 +138,9 @@ impl SlotContainer {
         // .take() replaces the value with None, and gives use the old value
         self.slots.get_mut(index)?.take()
     }
+
+    /// Gets the number of slots in this container
+    pub fn len(&self) -> usize {
+        self.slots.len()
+    }
 }

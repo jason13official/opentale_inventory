@@ -156,3 +156,101 @@ pub fn filter_valid_distribution_slots(
         .cloned()
         .collect()
 }
+
+pub fn process_shift_click(
+    slot_index: usize,
+    source_container_type: &ContainerType,
+    container_manager: &mut ContainerManager,
+) {
+    // Get the item stack from the source slot
+    let source_container = match container_manager.get_container_mut(source_container_type) {
+        Some(container) => container,
+        None => return,
+    };
+    
+    let Some(mut item_stack) = source_container.take_slot(slot_index) else {
+        return; // No item to move
+    };
+
+    // Determine target containers based on source and current UI mode
+    let target_containers = get_shift_click_targets(source_container_type, &container_manager.ui_mode);
+    
+    // Try to place the item stack in target containers
+    for target_type in target_containers {
+        if let Some(target_container) = container_manager.get_container_mut(&target_type) {
+            if let Some(remaining_stack) = try_place_stack_in_container(target_container, item_stack) {
+                item_stack = remaining_stack;
+            } else {
+                // All items placed successfully
+                return;
+            }
+        }
+    }
+
+    // If there are leftover items, put them back in the original slot
+    if let Some(source_container) = container_manager.get_container_mut(source_container_type) {
+        source_container.set_slot(slot_index, Some(item_stack));
+    }
+}
+
+fn get_shift_click_targets(source_type: &ContainerType, ui_mode: &crate::world::inventory::containers::UIMode) -> Vec<ContainerType> {
+    use crate::world::inventory::containers::UIMode;
+    
+    match (source_type, ui_mode) {
+        // From hotbar to player inventory
+        (ContainerType::Hotbar, UIMode::InventoryOpen) => {
+            vec![ContainerType::PlayerInventory]
+        }
+        // From hotbar to chest (when chest is open)
+        (ContainerType::Hotbar, UIMode::ChestOpen(chest_id)) => {
+            vec![ContainerType::Chest(*chest_id), ContainerType::PlayerInventory]
+        }
+        // From player inventory to hotbar
+        (ContainerType::PlayerInventory, UIMode::InventoryOpen) => {
+            vec![ContainerType::Hotbar]
+        }
+        // From player inventory to chest (when chest is open)
+        (ContainerType::PlayerInventory, UIMode::ChestOpen(chest_id)) => {
+            vec![ContainerType::Chest(*chest_id)]
+        }
+        // From chest to player inventory then hotbar
+        (ContainerType::Chest(_), UIMode::ChestOpen(_)) => {
+            vec![ContainerType::PlayerInventory, ContainerType::Hotbar]
+        }
+        // Default case - no valid targets
+        _ => vec![]
+    }
+}
+
+fn try_place_stack_in_container(container: &mut SlotContainer, mut stack: ItemStack) -> Option<ItemStack> {
+    let slot_count = container.len();
+    
+    // First pass: try to merge with existing stacks
+    for slot_index in 0..slot_count {
+        if let Some(existing_stack) = container.get_slot_mut(slot_index) {
+            if stack.can_merge_with(existing_stack) {
+                let max_size = existing_stack.item.unwrap().properties.max_stack_size;
+                let available_space = max_size.saturating_sub(existing_stack.size);
+                let to_add = available_space.min(stack.size);
+                
+                existing_stack.size += to_add;
+                stack.size -= to_add;
+                
+                if stack.size == 0 {
+                    return None; // All items placed
+                }
+            }
+        }
+    }
+    
+    // Second pass: place remaining items in empty slots
+    for slot_index in 0..slot_count {
+        if container.get_slot(slot_index).is_none() {
+            container.set_slot(slot_index, Some(stack));
+            return None; // All items placed
+        }
+    }
+    
+    // Return remaining items if container is full
+    Some(stack)
+}
