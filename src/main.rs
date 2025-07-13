@@ -19,7 +19,7 @@ fn main() {
         println!("{} -> {:?}", id, item.properties);
     }
 
-    println!("DIAMOND durability: {:?}", DIAMOND.properties.durability);
+    println!("DIAMOND durability: {:?}", RING.properties.durability);
 
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
