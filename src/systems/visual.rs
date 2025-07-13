@@ -275,12 +275,25 @@ pub fn update_slot_visuals(
                 *border_color = Color::rgb(1.0, 1.0, 0.0).into(); // Yellow for selected (highest priority)
             }
             else if is_currently_hovered && is_dragging && show_drag_highlighting {
-                if is_right_dragging {
-                    *border_color = Color::rgb(0.0, 0.8, 1.0).into(); // Light blue for right-click hover
+                // if is_right_dragging {
+                //     *border_color = Color::rgb(0.0, 0.8, 1.0).into(); // Light blue for right-click hover
+                // }
+                // else {
+                //     *border_color = Color::rgb(0.0, 1.0, 0.0).into(); // Green for left-click hover
+                // }
+
+                let preview_count = calculate_drag_preview(&current_slot, &drag_state, &held_item, &container_manager);
+
+                if preview_count > 0 {
+                    if is_right_dragging {
+                        *border_color = Color::rgb(0.0, 0.8, 1.0).into(); // Light blue for right-click hover
+                    } else {
+                        *border_color = Color::rgb(0.0, 1.0, 0.0).into(); // Green for left-click hover
+                    }
+                } else {
+                    *border_color = Color::rgb(0.6, 0.6, 0.6).into(); // Default border if slot can't accept items
                 }
-                else {
-                    *border_color = Color::rgb(0.0, 1.0, 0.0).into(); // Green for left-click hover
-                }
+
             }
             else if is_left_drag_target && is_left_dragging && show_drag_highlighting {
                 // Only highlight if the slot can actually accept items from the drag operation
@@ -330,9 +343,42 @@ fn calculate_remaining_after_drag(
 ) -> u32 {
     let total_items = held_stack.size;
     
+    // Determine which drag slots to use based on active drag type
+    let drag_slots = if drag_state.is_right_dragging {
+        &drag_state.right_drag_slots
+    } else {
+        &drag_state.left_drag_slots
+    };
+    
+    // For right-click drag, calculate items that would be placed (1 per valid slot)
+    if drag_state.is_right_dragging {
+        let mut can_place_count = 0;
+        
+        for &(ref container_type, slot_index) in drag_slots {
+            if let Some(container) = container_manager.get_container(container_type) {
+                match container.get_slot(slot_index) {
+                    None => can_place_count += 1, // Empty slot can take 1 item
+                    Some(existing_stack) => {
+                        if held_stack.can_merge_with(existing_stack) {
+                            let max_size = existing_stack.item.unwrap().properties.max_stack_size;
+                            let available_space = max_size - existing_stack.size;
+                            if available_space > 0 {
+                                can_place_count += 1; // Can place 1 item
+                            }
+                        }
+                        // If can't merge, no items can be placed in this slot
+                    }
+                }
+            }
+        }
+        
+        return total_items.saturating_sub(can_place_count);
+    }
+    
+    // Left-click drag logic (existing logic)
     // Single slot case - all items would be placed if possible
-    if drag_state.left_drag_slots.len() == 1 {
-        if let Some((container_type, slot_index)) = drag_state.left_drag_slots.first() {
+    if drag_slots.len() == 1 {
+        if let Some((container_type, slot_index)) = drag_slots.first() {
             if let Some(container) = container_manager.get_container(container_type) {
                 match container.get_slot(*slot_index) {
                     None => 0, // Empty slot can take all items
@@ -356,7 +402,7 @@ fn calculate_remaining_after_drag(
     } else {
         // Multi-slot distribution case
         let valid_slots = filter_valid_distribution_slots(
-            &drag_state.left_drag_slots,
+            drag_slots,
             held_stack,
             container_manager
         );
@@ -436,8 +482,14 @@ pub fn update_held_item_display(
         if let Some(text_entity) = children.first() {
             if let Ok(mut text) = text_query.get_mut(*text_entity) {
                 if let Some(stack) = &held_item.stack {
-                    let display_count = if drag_state.is_left_dragging && !drag_state.left_drag_slots.is_empty() {
-                        calculate_remaining_after_drag(stack, &drag_state, &container_manager)
+                    let is_actively_dragging = (drag_state.is_left_dragging && !drag_state.left_drag_slots.is_empty()) 
+                        || (drag_state.is_right_dragging && !drag_state.right_drag_slots.is_empty());
+                    
+                    let display_count = if is_actively_dragging {
+                        let remaining = calculate_remaining_after_drag(stack, &drag_state, &container_manager);
+                        // Never show 0 during active dragging - minimum of 1
+                        // remaining.max(1)
+                        remaining
                     } else {
                         stack.size
                     };
