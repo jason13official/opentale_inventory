@@ -38,6 +38,7 @@ pub fn handle_left_drag_deposit(
                     }
                     drag_state.is_left_dragging = false;
                     drag_state.left_drag_slots.clear();
+                    drag_state.current_hovered_slot = None;
                 }
             }
         }
@@ -46,7 +47,12 @@ pub fn handle_left_drag_deposit(
     if drag_state.is_left_dragging && held_item.stack.is_some() {
         if let Some(slot) = find_slot_under_cursor(cursor_pos, &slot_query) {
             drag_state.add_left_drag_slot(slot.container_type.clone(), slot.index);
+            drag_state.current_hovered_slot = Some((slot.container_type.clone(), slot.index));
+        } else {
+            drag_state.current_hovered_slot = None;
         }
+    } else {
+        drag_state.current_hovered_slot = None;
     }
 }
 
@@ -67,17 +73,21 @@ pub fn handle_right_drag_deposit(
         if event.button == MouseButton::Right {
             match event.state {
                 ButtonState::Pressed => {
+                    // Start dragging if we have an item
                     if held_item.stack.is_some() {
                         drag_state.is_right_dragging = true;
-                        drag_state.right_last_hovered_slot = None;
+                        drag_state.right_drag_slots.clear();
                     }
                 }
                 ButtonState::Released => {
+                    // End dragging and process deposits
                     if drag_state.is_right_dragging {
                         drag_state.was_right_dragging_this_frame = true;
+                        process_right_drag_end(&mut container_manager, &mut held_item, &mut drag_state);
                     }
                     drag_state.is_right_dragging = false;
-                    drag_state.right_last_hovered_slot = None;
+                    drag_state.right_drag_slots.clear();
+                    drag_state.current_hovered_slot = None;
                 }
             }
         }
@@ -85,14 +95,38 @@ pub fn handle_right_drag_deposit(
 
     if drag_state.is_right_dragging && held_item.stack.is_some() {
         if let Some(slot) = find_slot_under_cursor(cursor_pos, &slot_query) {
-            let current_slot = (slot.container_type.clone(), slot.index);
+            drag_state.add_right_drag_slot(slot.container_type.clone(), slot.index);
+            drag_state.current_hovered_slot = Some((slot.container_type.clone(), slot.index));
+        } else {
+            drag_state.current_hovered_slot = None;
+        }
+    } else {
+        drag_state.current_hovered_slot = None;
+    }
+}
 
-            if drag_state.right_last_hovered_slot != Some(current_slot.clone()) {
-                drag_state.right_last_hovered_slot = Some(current_slot);
+pub(crate) fn process_right_drag_end(
+    container_manager: &mut ContainerManager,
+    held_item: &mut HeldItem,
+    drag_state: &DragState,
+) {
+    let Some(_) = &held_item.stack else {
+        return;
+    };
 
-                if let Some(container) = container_manager.get_container_mut(&slot.container_type) {
-                    deposit_single_item(slot.index, container, &mut held_item);
-                }
+    // If no slots were dragged over, do nothing (keep holding item)
+    if drag_state.right_drag_slots.is_empty() {
+        return;
+    }
+
+    // Deposit one item per slot that was dragged over
+    for (container_type, slot_index) in &drag_state.right_drag_slots {
+        if let Some(container) = container_manager.get_container_mut(container_type) {
+            deposit_single_item(*slot_index, container, held_item);
+            
+            // If we run out of items, stop
+            if held_item.stack.is_none() {
+                break;
             }
         }
     }

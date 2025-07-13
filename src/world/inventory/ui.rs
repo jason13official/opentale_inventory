@@ -65,7 +65,7 @@ pub fn setup_game(
     }
 
     if let Some(chest3) = container_manager.containers.get_mut(&ContainerType::Chest(3)) {
-        chest3.set_slot(0, Some(ItemStack::new(items::IRON_SWORD, 3)));
+        chest3.set_slot(0, Some(ItemStack::new(items::IRON_SWORD, 1)));
         chest3.set_slot(1, Some(ItemStack::new(items::RING, 10)));
     }
 
@@ -364,6 +364,24 @@ pub fn create_inventory_slot(
                             ..default()
                         }),
                         ItemCountText,
+                    ));
+                    
+                    // Drag preview text (positioned absolutely in top-left)
+                    parent.spawn((
+                        TextBundle::from_section(
+                            "",
+                            TextStyle {
+                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                font_size: 10.0,
+                                color: Color::rgb(0.0, 1.0, 0.0),
+                            },
+                        ).with_style(Style {
+                            position_type: PositionType::Absolute,
+                            top: Val::Px(2.0),
+                            left: Val::Px(2.0),
+                            ..default()
+                        }),
+                        SlotPreviewText,
                     ));
                 });
         });
