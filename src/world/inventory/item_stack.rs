@@ -11,10 +11,24 @@ pub struct ItemStack {
 impl ItemStack {
 
     pub fn new(item: Item, size: u32) -> Self {
-        Self {
-            item: Some(item),
-            size,
+
+        if size <= item.properties.max_stack_size {
+            Self {
+                item: Some(item),
+                size,
+            }
         }
+        else {
+            Self {
+                item: Some(item),
+                size: 1,
+            }
+        }
+
+        // Self {
+        //     item: Some(item),
+        //     size,
+        // }
     }
 
     pub const fn empty() -> Self {

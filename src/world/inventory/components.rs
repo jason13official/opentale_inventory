@@ -24,7 +24,7 @@ pub struct DragState {
     // Right-click drag (single-deposition)
     pub is_right_dragging: bool,
     pub was_right_dragging_this_frame: bool,
-    pub right_last_hovered_slot: Option<(ContainerType, usize)>,
+    pub right_drag_slots: Vec<(ContainerType, usize)>,
 
     // Left-click drag (even-distribution)
     pub is_left_dragging: bool,
@@ -32,6 +32,9 @@ pub struct DragState {
     pub left_drag_slots: Vec<(ContainerType, usize)>,
 
     pub pickup_slot: Option<(ContainerType, usize)>,
+    
+    // Current hovered slot for highlighting
+    pub current_hovered_slot: Option<(ContainerType, usize)>,
 }
 
 #[derive(Resource)]
@@ -54,11 +57,21 @@ pub struct ItemSprite;
 #[derive(Component)]
 pub struct ItemCountText;
 
+#[derive(Component)]
+pub struct SlotPreviewText;
+
 impl DragState {
     pub fn add_left_drag_slot(&mut self, container_type: ContainerType, index: usize) {
         let slot = (container_type, index);
         if !self.left_drag_slots.contains(&slot) {
             self.left_drag_slots.push(slot);
+        }
+    }
+
+    pub fn add_right_drag_slot(&mut self, container_type: ContainerType, index: usize) {
+        let slot = (container_type, index);
+        if !self.right_drag_slots.contains(&slot) {
+            self.right_drag_slots.push(slot);
         }
     }
 }
