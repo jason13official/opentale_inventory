@@ -7,6 +7,7 @@ use bevy::hierarchy::Children;
 use crate::utils::item_operations::filter_valid_distribution_slots;
 use bevy::prelude::{BackgroundColor, Changed, Color, Entity, Query, Res, Style, Text, Val, Window, With, Without, UiImage, Visibility, TextureAtlas};
 use bevy::ui::{BorderColor, Interaction};
+use crate::world::inventory::item_stack::ItemStack;
 
 /// Converts sprite coordinates (x, y) to atlas index for an 8x9 spritesheet
 fn sprite_coords_to_atlas_index(sprite_x: u8, sprite_y: u8) -> usize {
@@ -321,8 +322,106 @@ pub fn update_slot_visuals(
     }
 }
 
+/// Calculate how many items would remain in hand after drag distribution
+fn calculate_remaining_after_drag(
+    held_stack: &ItemStack,
+    drag_state: &DragState,
+    container_manager: &ContainerManager,
+) -> u32 {
+    let total_items = held_stack.size;
+    
+    // Single slot case - all items would be placed if possible
+    if drag_state.left_drag_slots.len() == 1 {
+        if let Some((container_type, slot_index)) = drag_state.left_drag_slots.first() {
+            if let Some(container) = container_manager.get_container(container_type) {
+                match container.get_slot(*slot_index) {
+                    None => 0, // Empty slot can take all items
+                    Some(existing_stack) => {
+                        if held_stack.can_merge_with(existing_stack) {
+                            let max_size = existing_stack.item.unwrap().properties.max_stack_size;
+                            let available_space = max_size - existing_stack.size;
+                            let can_place = held_stack.size.min(available_space);
+                            total_items - can_place
+                        } else {
+                            total_items // Can't merge, keep all items
+                        }
+                    }
+                }
+            } else {
+                total_items // Container not found, keep all items
+            }
+        } else {
+            total_items // No slot found, keep all items
+        }
+    } else {
+        // Multi-slot distribution case
+        let valid_slots = filter_valid_distribution_slots(
+            &drag_state.left_drag_slots,
+            held_stack,
+            container_manager
+        );
+
+        // Filter out pickup slot if we have other valid slots
+        let filtered_slots = if let Some(pickup_slot) = &drag_state.pickup_slot {
+            let non_pickup_slots: Vec<_> = valid_slots.iter()
+                .filter(|slot| *slot != pickup_slot)
+                .cloned()
+                .collect();
+            
+            if !non_pickup_slots.is_empty() {
+                non_pickup_slots
+            } else {
+                valid_slots
+            }
+        } else {
+            valid_slots
+        };
+
+        if filtered_slots.is_empty() {
+            return total_items; // No valid slots, keep all items
+        }
+
+        let valid_slot_count = filtered_slots.len() as u32;
+        let items_per_slot = total_items / valid_slot_count;
+        let remainder = total_items % valid_slot_count;
+        let mut total_can_place = 0;
+
+        // Calculate how much can actually be placed in each slot
+        for (i, &(ref container_type, slot_index)) in filtered_slots.iter().enumerate() {
+            if let Some(container) = container_manager.get_container(container_type) {
+                // Items intended for this slot
+                let intended_amount = if i < remainder as usize {
+                    items_per_slot + 1
+                } else {
+                    items_per_slot
+                };
+
+                // Check how much can actually fit
+                let can_place = match container.get_slot(slot_index) {
+                    None => intended_amount, // Empty slot can take intended amount
+                    Some(existing_stack) => {
+                        if held_stack.can_merge_with(existing_stack) {
+                            let max_size = existing_stack.item.unwrap().properties.max_stack_size;
+                            let available_space = max_size - existing_stack.size;
+                            intended_amount.min(available_space)
+                        } else {
+                            0 // Can't merge
+                        }
+                    }
+                };
+                
+                total_can_place += can_place;
+            }
+        }
+
+        total_items.saturating_sub(total_can_place)
+    }
+}
+
 pub fn update_held_item_display(
     held_item: Res<HeldItem>,
+    drag_state: Res<DragState>,
+    container_manager: Res<ContainerManager>,
     mut display_query: Query<(&mut Style, &Children), With<HeldItemDisplay>>,
     mut text_query: Query<&mut Text>,
     windows: Query<&Window>,
@@ -337,7 +436,23 @@ pub fn update_held_item_display(
         if let Some(text_entity) = children.first() {
             if let Ok(mut text) = text_query.get_mut(*text_entity) {
                 if let Some(stack) = &held_item.stack {
-                    text.sections[0].value = format_item_display(stack);
+                    let display_count = if drag_state.is_left_dragging && !drag_state.left_drag_slots.is_empty() {
+                        calculate_remaining_after_drag(stack, &drag_state, &container_manager)
+                    } else {
+                        stack.size
+                    };
+                    
+                    if let Some(item) = stack.item {
+                        if display_count > 1 {
+                            text.sections[0].value = format!("{} ({})", item.display_name, display_count);
+                        } else if display_count == 1 {
+                            text.sections[0].value = item.display_name.to_string();
+                        } else {
+                            text.sections[0].value.clear();
+                        }
+                    } else {
+                        text.sections[0].value.clear();
+                    }
                 } else {
                     text.sections[0].value.clear();
                 }
