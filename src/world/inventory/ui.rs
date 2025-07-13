@@ -4,44 +4,69 @@ use crate::world::inventory::item_stack::ItemStack;
 use crate::world::item::*;
 use bevy::prelude::*;
 
+/// Resource to hold the item spritesheet texture atlas
+#[derive(Resource)]
+pub struct ItemSpritesheet {
+    pub texture_atlas: Handle<TextureAtlasLayout>,
+    pub texture: Handle<Image>,
+}
+
 /// Sets up the initial game state and UI
 pub fn setup_game(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     mut container_manager: ResMut<ContainerManager>,
 ) {
+    // Load the item spritesheet and create texture atlas
+    let texture = asset_server.load("textures/item/sprites.png");
+    // The spritesheet is 128x144 pixels (8 columns by 9 rows), each sprite 16x16 pixels, tightly packed
+    let layout = TextureAtlasLayout::from_grid(
+        Vec2::new(16.0, 16.0), // sprite size
+        8, // columns
+        9, // rows (9 rows total)
+        Some(Vec2::ZERO), // no padding between sprites
+        Some(Vec2::ZERO), // no offset from edge
+    );
+    let texture_atlas_layout = texture_atlas_layouts.add(layout);
+    
+    let spritesheet = ItemSpritesheet {
+        texture_atlas: texture_atlas_layout,
+        texture,
+    };
+    commands.insert_resource(spritesheet);
     // Add some test items to different containers
 
     // Add items to hotbar
     if let Some(hotbar) = container_manager.containers.get_mut(&ContainerType::Hotbar) {
         hotbar.set_slot(0, Some(ItemStack::new(items::APPLE, 16)));
-        hotbar.set_slot(1, Some(ItemStack::new(items::DIAMOND, 2)));
+        hotbar.set_slot(1, Some(ItemStack::new(items::BOW, 1)));
         hotbar.set_slot(2, Some(ItemStack::new(items::IRON_SWORD, 1)));
     }
 
     // Add items to player inventory
     if let Some(inventory) = container_manager.containers.get_mut(&ContainerType::PlayerInventory) {
         inventory.set_slot(0, Some(ItemStack::new(items::APPLE, 32)));
-        inventory.set_slot(1, Some(ItemStack::new(items::BREAD, 8)));
+        inventory.set_slot(1, Some(ItemStack::new(items::RING, 8)));
         inventory.set_slot(9, Some(ItemStack::new(items::GLASS_BOTTLE, 12)));
     }
 
     // Add different items to different chests
     if let Some(chest1) = container_manager.containers.get_mut(&ContainerType::Chest(1)) {
-        chest1.set_slot(0, Some(ItemStack::new(items::DIAMOND, 5)));
+        chest1.set_slot(0, Some(ItemStack::new(items::BOW, 1)));
         chest1.set_slot(1, Some(ItemStack::new(items::IRON_SWORD, 1)));
-        chest1.set_slot(2, Some(ItemStack::new(items::EMERALD, 3)));
+        chest1.set_slot(2, Some(ItemStack::new(items::CHEESE, 3)));
     }
 
     if let Some(chest2) = container_manager.containers.get_mut(&ContainerType::Chest(2)) {
-        chest2.set_slot(0, Some(ItemStack::new(items::BREAD, 64)));
+        chest2.set_slot(0, Some(ItemStack::new(items::CHEESE, 64)));
         chest2.set_slot(1, Some(ItemStack::new(items::APPLE, 64)));
         chest2.set_slot(2, Some(ItemStack::new(items::GLASS_BOTTLE, 32)));
     }
 
     if let Some(chest3) = container_manager.containers.get_mut(&ContainerType::Chest(3)) {
         chest3.set_slot(0, Some(ItemStack::new(items::IRON_SWORD, 3)));
-        chest3.set_slot(1, Some(ItemStack::new(items::DIAMOND, 10)));
+        chest3.set_slot(1, Some(ItemStack::new(items::RING, 10)));
     }
 
     // Spawn camera
@@ -293,15 +318,54 @@ pub fn create_inventory_slot(
             },
         ))
         .with_children(|parent| {
-            // Text to display item name and count
-            parent.spawn(TextBundle::from_section(
-                "",
-                TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                    font_size: 16.0,
-                    color: Color::WHITE,
-                },
-            ));
+            // Container for item sprite and count
+            parent
+                .spawn(NodeBundle {
+                    style: Style {
+                        width: Val::Percent(100.0),
+                        height: Val::Percent(100.0),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        position_type: PositionType::Relative,
+                        ..default()
+                    },
+                    ..default()
+                })
+                .with_children(|parent| {
+                    // Item sprite
+                    parent.spawn((
+                        AtlasImageBundle {
+                            style: Style {
+                                width: Val::Px(32.0),
+                                height: Val::Px(32.0),
+                                ..default()
+                            },
+                            image: UiImage::default(),
+                            texture_atlas: TextureAtlas::default(),
+                            visibility: Visibility::Hidden,
+                            ..default()
+                        },
+                        ItemSprite,
+                    ));
+                    
+                    // Item count text (positioned absolutely in bottom-right)
+                    parent.spawn((
+                        TextBundle::from_section(
+                            "",
+                            TextStyle {
+                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                font_size: 12.0,
+                                color: Color::WHITE,
+                            },
+                        ).with_style(Style {
+                            position_type: PositionType::Absolute,
+                            bottom: Val::Px(2.0),
+                            right: Val::Px(2.0),
+                            ..default()
+                        }),
+                        ItemCountText,
+                    ));
+                });
         });
 }
 
