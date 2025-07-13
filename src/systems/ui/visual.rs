@@ -14,6 +14,188 @@ fn sprite_coords_to_atlas_index(sprite_x: u8, sprite_y: u8) -> usize {
     (sprite_y as usize * 8) + sprite_x as usize
 }
 
+/// Check if a slot can accept items from a held stack
+fn can_slot_accept_items(
+    container_type: &ContainerType,
+    slot_index: usize,
+    held_stack: &ItemStack,
+    container_manager: &ContainerManager,
+) -> bool {
+    if let Some(container) = container_manager.get_container(container_type) {
+        match container.get_slot(slot_index) {
+            None => true, // Empty slot can accept items
+            Some(existing_stack) => {
+                held_stack.can_merge_with(existing_stack) &&
+                    existing_stack.size < existing_stack.item.unwrap().properties.max_stack_size
+            }
+        }
+    } else {
+        false
+    }
+}
+
+/// Calculate available space in a slot for a specific item stack
+fn calculate_available_space(
+    container_type: &ContainerType,
+    slot_index: usize,
+    held_stack: &ItemStack,
+    container_manager: &ContainerManager,
+) -> u32 {
+    if let Some(container) = container_manager.get_container(container_type) {
+        match container.get_slot(slot_index) {
+            None => held_stack.size, // Empty slot can take the whole stack
+            Some(existing_stack) => {
+                if held_stack.can_merge_with(existing_stack) {
+                    let max_size = existing_stack.item.unwrap().properties.max_stack_size;
+                    max_size - existing_stack.size
+                } else {
+                    0 // Can't merge
+                }
+            }
+        }
+    } else {
+        0
+    }
+}
+
+/// Generic function to clear text content for any text entity
+fn clear_text<Q: bevy::ecs::query::QueryFilter>(text_entity: Entity, text_query: &mut Query<&mut Text, Q>) {
+    if let Ok(mut text) = text_query.get_mut(text_entity) {
+        text.sections[0].value.clear();
+    }
+}
+
+/// Container for slot child entities to avoid repeated traversal
+#[derive(Default)]
+struct SlotChildren {
+    sprite: Option<Entity>,
+    count_text: Option<Entity>,
+    preview_text: Option<Entity>,
+}
+
+impl SlotChildren {
+    fn find_from_slot_children(
+        container_child: Entity,
+        children_query: &Query<&Children, Without<InventorySlot>>,
+        sprite_query: &Query<(&mut UiImage, &mut TextureAtlas, &mut Visibility), With<ItemSprite>>,
+        text_query: &Query<&mut Text, With<ItemCountText>>,
+        preview_text_query: &Query<&mut Text, (With<SlotPreviewText>, Without<ItemCountText>)>,
+    ) -> Self {
+        let mut children = Self::default();
+        
+        if let Ok(sprite_children) = children_query.get(container_child) {
+            for &grandchild in sprite_children.iter() {
+                if sprite_query.get(grandchild).is_ok() {
+                    children.sprite = Some(grandchild);
+                }
+                if text_query.get(grandchild).is_ok() {
+                    children.count_text = Some(grandchild);
+                }
+                if preview_text_query.get(grandchild).is_ok() {
+                    children.preview_text = Some(grandchild);
+                }
+            }
+        }
+        
+        children
+    }
+}
+
+/// Encapsulates drag state for a specific slot
+struct SlotDragContext {
+    current_slot: (ContainerType, usize),
+    is_left_drag_target: bool,
+    is_right_drag_target: bool,
+    is_currently_hovered: bool,
+    is_left_dragging: bool,
+    is_right_dragging: bool,
+    show_drag_highlighting: bool,
+}
+
+impl SlotDragContext {
+    fn new(slot: &InventorySlot, drag_state: &DragState) -> Self {
+        let current_slot = (slot.container_type.clone(), slot.index);
+        let is_left_drag_target = drag_state.left_drag_slots.contains(&current_slot);
+        let is_right_drag_target = drag_state.right_drag_slots.contains(&current_slot);
+        let is_currently_hovered = drag_state.current_hovered_slot == Some(current_slot.clone());
+        let is_left_dragging = drag_state.is_left_dragging;
+        let is_right_dragging = drag_state.is_right_dragging;
+        
+        let show_drag_highlighting = (is_left_dragging && drag_state.left_drag_slots.len() > 1) ||
+            (is_right_dragging && drag_state.right_drag_slots.len() > 1);
+            
+        Self {
+            current_slot,
+            is_left_drag_target,
+            is_right_drag_target,
+            is_currently_hovered,
+            is_left_dragging,
+            is_right_dragging,
+            show_drag_highlighting,
+        }
+    }
+    
+    fn is_dragging(&self) -> bool {
+        self.is_left_dragging || self.is_right_dragging
+    }
+}
+
+/// Filters out pickup slot from valid slots if other slots are available
+fn filter_out_pickup_slot(
+    valid_slots: Vec<(ContainerType, usize)>,
+    pickup_slot: &Option<(ContainerType, usize)>,
+) -> Vec<(ContainerType, usize)> {
+    if let Some(pickup_slot) = pickup_slot {
+        let non_pickup_slots: Vec<_> = valid_slots.iter()
+            .filter(|slot| *slot != pickup_slot)
+            .cloned()
+            .collect();
+        
+        if !non_pickup_slots.is_empty() {
+            non_pickup_slots
+        } else {
+            valid_slots
+        }
+    } else {
+        valid_slots
+    }
+}
+
+/// Determines the appropriate border color for a slot based on its state
+fn determine_slot_border_color(
+    is_selected: bool,
+    drag_context: &SlotDragContext,
+    preview_count: u32,
+) -> Color {
+    if is_selected {
+        Color::rgb(1.0, 1.0, 0.0) // Yellow for selected (highest priority)
+    } else if drag_context.is_currently_hovered && drag_context.is_dragging() && drag_context.show_drag_highlighting {
+        if preview_count > 0 {
+            if drag_context.is_right_dragging {
+                Color::rgb(0.0, 0.8, 1.0) // Light blue for right-click hover
+            } else {
+                Color::rgb(0.0, 1.0, 0.0) // Green for left-click hover
+            }
+        } else {
+            Color::rgb(0.6, 0.6, 0.6) // Default border if slot can't accept items
+        }
+    } else if drag_context.is_left_drag_target && drag_context.is_left_dragging && drag_context.show_drag_highlighting {
+        if preview_count > 0 {
+            Color::rgb(0.0, 0.8, 0.0) // Darker green for left-drag target slots
+        } else {
+            Color::rgb(0.6, 0.6, 0.6) // Default border for invalid slots
+        }
+    } else if drag_context.is_right_drag_target && drag_context.is_right_dragging && drag_context.show_drag_highlighting {
+        if preview_count > 0 {
+            Color::rgb(0.0, 0.6, 0.8) // Darker blue for right-drag target slots
+        } else {
+            Color::rgb(0.6, 0.6, 0.6) // Default border for invalid slots
+        }
+    } else {
+        Color::rgb(0.6, 0.6, 0.6) // Default border
+    }
+}
+
 /// Calculate how many items would be deposited in this slot during drag distribution
 fn calculate_drag_preview(
     current_slot: &(ContainerType, usize),
@@ -30,23 +212,13 @@ fn calculate_drag_preview(
     // Single slot case - check actual capacity
     if drag_state.left_drag_slots.len() == 1 {
         if drag_state.left_drag_slots.contains(current_slot) {
-            // Calculate how much can actually fit in this slot
-            if let Some(container) = container_manager.get_container(&current_slot.0) {
-                match container.get_slot(current_slot.1) {
-                    None => held_stack.size, // Empty slot can take the whole stack
-                    Some(existing_stack) => {
-                        if held_stack.can_merge_with(existing_stack) {
-                            let max_size = existing_stack.item.unwrap().properties.max_stack_size;
-                            let available_space = max_size - existing_stack.size;
-                            held_stack.size.min(available_space)
-                        } else {
-                            0 // Can't merge
-                        }
-                    }
-                }
-            } else {
-                0
-            }
+            let available_space = calculate_available_space(
+                &current_slot.0,
+                current_slot.1,
+                held_stack,
+                container_manager
+            );
+            held_stack.size.min(available_space)
         } else {
             0
         }
@@ -58,21 +230,7 @@ fn calculate_drag_preview(
             container_manager
         );
 
-        // Filter out pickup slot if we have other valid slots
-        let filtered_slots = if let Some(pickup_slot) = &drag_state.pickup_slot {
-            let non_pickup_slots: Vec<_> = valid_slots.iter()
-                .filter(|slot| *slot != pickup_slot)
-                .cloned()
-                .collect();
-            
-            if !non_pickup_slots.is_empty() {
-                non_pickup_slots
-            } else {
-                valid_slots
-            }
-        } else {
-            valid_slots
-        };
+        let filtered_slots = filter_out_pickup_slot(valid_slots, &drag_state.pickup_slot);
 
         if !filtered_slots.contains(current_slot) {
             return 0;
@@ -94,22 +252,13 @@ fn calculate_drag_preview(
         };
 
         // Now check how much can actually fit in this slot
-        if let Some(container) = container_manager.get_container(&current_slot.0) {
-            match container.get_slot(current_slot.1) {
-                None => intended_amount, // Empty slot can take the intended amount
-                Some(existing_stack) => {
-                    if held_stack.can_merge_with(existing_stack) {
-                        let max_size = existing_stack.item.unwrap().properties.max_stack_size;
-                        let available_space = max_size - existing_stack.size;
-                        intended_amount.min(available_space)
-                    } else {
-                        0 // Can't merge
-                    }
-                }
-            }
-        } else {
-            0
-        }
+        let available_space = calculate_available_space(
+            &current_slot.0,
+            current_slot.1,
+            held_stack,
+            container_manager
+        );
+        intended_amount.min(available_space)
     }
 }
 
@@ -137,33 +286,23 @@ pub fn update_slot_visuals(
             let is_selected = slot.container_type == ContainerType::Hotbar 
                 && slot.index == selected_hotbar_slot.slot_index;
 
-            // Find the sprite and text children by traversing the hierarchy
-            let mut sprite_entity = None;
-            let mut text_entity = None;
-            let mut preview_text_entity = None;
-            
-            // First child should be the container node
-            if let Some(&container_child) = children.first() {
-                // This container child should have children that are sprite and text
-                if let Ok(sprite_children) = children_query.get(container_child) {
-                    for &grandchild in sprite_children.iter() {
-                        if sprite_query.get(grandchild).is_ok() {
-                            sprite_entity = Some(grandchild);
-                        }
-                        if text_query.get(grandchild).is_ok() {
-                            text_entity = Some(grandchild);
-                        }
-                        if preview_text_query.get(grandchild).is_ok() {
-                            preview_text_entity = Some(grandchild);
-                        }
-                    }
-                }
-            }
+            // Find child entities for this slot
+            let slot_children = if let Some(&container_child) = children.first() {
+                SlotChildren::find_from_slot_children(
+                    container_child,
+                    &children_query,
+                    &sprite_query,
+                    &text_query,
+                    &preview_text_query,
+                )
+            } else {
+                SlotChildren::default()
+            };
 
             if let Some(item_stack) = container.get_slot(slot.index) {
                 if let Some(item) = item_stack.item {
                     // Update sprite
-                    if let Some(sprite_ent) = sprite_entity {
+                    if let Some(sprite_ent) = slot_children.sprite {
                         if let Ok((mut ui_image, mut texture_atlas, mut visibility)) = sprite_query.get_mut(sprite_ent) {
                             *ui_image = UiImage::new(spritesheet.texture.clone());
                             texture_atlas.layout = spritesheet.texture_atlas.clone();
@@ -173,7 +312,7 @@ pub fn update_slot_visuals(
                     }
 
                     // Update count text
-                    if let Some(text_ent) = text_entity {
+                    if let Some(text_ent) = slot_children.count_text {
                         if let Ok(mut text) = text_query.get_mut(text_ent) {
                             if item_stack.size > 1 {
                                 text.sections[0].value = item_stack.size.to_string();
@@ -187,55 +326,31 @@ pub fn update_slot_visuals(
                 *bg_color = Color::rgb(0.3, 0.3, 0.7).into();
             } else {
                 // Hide sprite when no item
-                if let Some(sprite_ent) = sprite_entity {
+                if let Some(sprite_ent) = slot_children.sprite {
                     if let Ok((_, _, mut visibility)) = sprite_query.get_mut(sprite_ent) {
                         *visibility = Visibility::Hidden;
                     }
                 }
 
                 // Clear count text
-                if let Some(text_ent) = text_entity {
-                    if let Ok(mut text) = text_query.get_mut(text_ent) {
-                        text.sections[0].value.clear();
-                    }
+                if let Some(text_ent) = slot_children.count_text {
+                    clear_text(text_ent, &mut text_query);
                 }
 
                 *bg_color = Color::rgb(0.4, 0.4, 0.4).into();
             }
 
-            // Determine slot state for drag highlighting
-            let current_slot = (slot.container_type.clone(), slot.index);
-            let is_left_drag_target = drag_state.left_drag_slots.contains(&current_slot);
-            let is_right_drag_target = drag_state.right_drag_slots.contains(&current_slot);
-            let is_currently_hovered = drag_state.current_hovered_slot == Some(current_slot.clone());
-            let is_left_dragging = drag_state.is_left_dragging;
-            let is_right_dragging = drag_state.is_right_dragging;
-            let is_dragging = is_left_dragging || is_right_dragging;
-
-            // Set border color based on state priority
-            // Only show drag highlighting if multiple slots are involved
-            let show_drag_highlighting = (is_left_dragging && drag_state.left_drag_slots.len() > 1) ||
-                (is_right_dragging && drag_state.right_drag_slots.len() > 1);
+            // Create drag context for this slot
+            let drag_context = SlotDragContext::new(slot, &drag_state);
             
-            // Calculate drag preview if dragging
-            if is_dragging && held_item.stack.is_some() && show_drag_highlighting {
-                let preview_count = if is_left_dragging {
-                    calculate_drag_preview(&current_slot, &drag_state, &held_item, &container_manager)
-                } else if is_right_dragging && is_right_drag_target {
-                    // Only show preview if the slot can actually accept the item
+            // Calculate and display drag preview
+            let preview_count = if drag_context.is_dragging() && held_item.stack.is_some() && drag_context.show_drag_highlighting {
+                if drag_context.is_left_dragging {
+                    calculate_drag_preview(&drag_context.current_slot, &drag_state, &held_item, &container_manager)
+                } else if drag_context.is_right_dragging && drag_context.is_right_drag_target {
                     if let Some(held_stack) = &held_item.stack {
-                        if let Some(container) = container_manager.get_container(&slot.container_type) {
-                            match container.get_slot(slot.index) {
-                                None => 1, // Empty slot can accept 1 item
-                                Some(existing_stack) => {
-                                    if held_stack.can_merge_with(existing_stack) &&
-                                        existing_stack.size < existing_stack.item.unwrap().properties.max_stack_size {
-                                        1 // Can accept 1 more item
-                                    } else {
-                                        0 // Can't accept items
-                                    }
-                                }
-                            }
+                        if can_slot_accept_items(&slot.container_type, slot.index, held_stack, &container_manager) {
+                            1
                         } else {
                             0
                         }
@@ -244,93 +359,29 @@ pub fn update_slot_visuals(
                     }
                 } else {
                     0
-                };
-                
-                // Update preview text
-                if let Some(preview_ent) = preview_text_entity {
-                    if let Ok(mut preview_text) = preview_text_query.get_mut(preview_ent) {
-                        if preview_count > 0 {
-                            preview_text.sections[0].value = format!("+{}", preview_count);
-                            preview_text.sections[0].style.color = if is_right_dragging {
-                                Color::rgb(0.0, 0.8, 1.0) // Light blue for right-click
-                            } else {
-                                Color::rgb(0.0, 1.0, 0.0) // Green for left-click
-                            };
-                        } else {
-                            preview_text.sections[0].value.clear();
-                        }
-                    }
                 }
-            }
-            else {
-                // Clear preview text when not dragging
-                if let Some(preview_ent) = preview_text_entity {
-                    if let Ok(mut preview_text) = preview_text_query.get_mut(preview_ent) {
-                        preview_text.sections[0].value.clear();
+            } else {
+                0
+            };
+            
+            // Update preview text
+            if let Some(preview_ent) = slot_children.preview_text {
+                if let Ok(mut preview_text) = preview_text_query.get_mut(preview_ent) {
+                    if preview_count > 0 {
+                        preview_text.sections[0].value = format!("+{}", preview_count);
+                        preview_text.sections[0].style.color = if drag_context.is_right_dragging {
+                            Color::rgb(0.0, 0.8, 1.0) // Light blue for right-click
+                        } else {
+                            Color::rgb(0.0, 1.0, 0.0) // Green for left-click
+                        };
+                    } else {
+                        clear_text(preview_ent, &mut preview_text_query);
                     }
                 }
             }
             
-            if is_selected {
-                *border_color = Color::rgb(1.0, 1.0, 0.0).into(); // Yellow for selected (highest priority)
-            }
-            else if is_currently_hovered && is_dragging && show_drag_highlighting {
-                // if is_right_dragging {
-                //     *border_color = Color::rgb(0.0, 0.8, 1.0).into(); // Light blue for right-click hover
-                // }
-                // else {
-                //     *border_color = Color::rgb(0.0, 1.0, 0.0).into(); // Green for left-click hover
-                // }
-
-                let preview_count = calculate_drag_preview(&current_slot, &drag_state, &held_item, &container_manager);
-
-                if preview_count > 0 {
-                    if is_right_dragging {
-                        *border_color = Color::rgb(0.0, 0.8, 1.0).into(); // Light blue for right-click hover
-                    } else {
-                        *border_color = Color::rgb(0.0, 1.0, 0.0).into(); // Green for left-click hover
-                    }
-                } else {
-                    *border_color = Color::rgb(0.6, 0.6, 0.6).into(); // Default border if slot can't accept items
-                }
-
-            }
-            else if is_left_drag_target && is_left_dragging && show_drag_highlighting {
-                // Only highlight if the slot can actually accept items from the drag operation
-                let preview_count = calculate_drag_preview(&current_slot, &drag_state, &held_item, &container_manager);
-                if preview_count > 0 {
-                    *border_color = Color::rgb(0.0, 0.8, 0.0).into(); // Darker green for left-drag target slots
-                } else {
-                    *border_color = Color::rgb(0.6, 0.6, 0.6).into(); // Default border for invalid slots
-                }
-            }
-            else if is_right_drag_target && is_right_dragging && show_drag_highlighting {
-                // Only highlight if the slot can actually accept the item
-                let can_accept = if let Some(held_stack) = &held_item.stack {
-                    if let Some(container) = container_manager.get_container(&slot.container_type) {
-                        match container.get_slot(slot.index) {
-                            None => true, // Empty slot can accept items
-                            Some(existing_stack) => {
-                                held_stack.can_merge_with(existing_stack) &&
-                                    existing_stack.size < existing_stack.item.unwrap().properties.max_stack_size
-                            }
-                        }
-                    } else {
-                        false
-                    }
-                } else {
-                    false
-                };
-                
-                if can_accept {
-                    *border_color = Color::rgb(0.0, 0.6, 0.8).into(); // Darker blue for right-drag target slots
-                } else {
-                    *border_color = Color::rgb(0.6, 0.6, 0.6).into(); // Default border for invalid slots
-                }
-            }
-            else {
-                *border_color = Color::rgb(0.6, 0.6, 0.6).into(); // Default border
-            }
+            // Set border color based on slot state
+            *border_color = determine_slot_border_color(is_selected, &drag_context, preview_count).into();
         }
     }
 }
@@ -355,20 +406,8 @@ fn calculate_remaining_after_drag(
         let mut can_place_count = 0;
         
         for &(ref container_type, slot_index) in drag_slots {
-            if let Some(container) = container_manager.get_container(container_type) {
-                match container.get_slot(slot_index) {
-                    None => can_place_count += 1, // Empty slot can take 1 item
-                    Some(existing_stack) => {
-                        if held_stack.can_merge_with(existing_stack) {
-                            let max_size = existing_stack.item.unwrap().properties.max_stack_size;
-                            let available_space = max_size - existing_stack.size;
-                            if available_space > 0 {
-                                can_place_count += 1; // Can place 1 item
-                            }
-                        }
-                        // If can't merge, no items can be placed in this slot
-                    }
-                }
+            if can_slot_accept_items(container_type, slot_index, held_stack, container_manager) {
+                can_place_count += 1;
             }
         }
         
@@ -379,23 +418,14 @@ fn calculate_remaining_after_drag(
     // Single slot case - all items would be placed if possible
     if drag_slots.len() == 1 {
         if let Some((container_type, slot_index)) = drag_slots.first() {
-            if let Some(container) = container_manager.get_container(container_type) {
-                match container.get_slot(*slot_index) {
-                    None => 0, // Empty slot can take all items
-                    Some(existing_stack) => {
-                        if held_stack.can_merge_with(existing_stack) {
-                            let max_size = existing_stack.item.unwrap().properties.max_stack_size;
-                            let available_space = max_size - existing_stack.size;
-                            let can_place = held_stack.size.min(available_space);
-                            total_items - can_place
-                        } else {
-                            total_items // Can't merge, keep all items
-                        }
-                    }
-                }
-            } else {
-                total_items // Container not found, keep all items
-            }
+            let available_space = calculate_available_space(
+                container_type,
+                *slot_index,
+                held_stack,
+                container_manager
+            );
+            let can_place = held_stack.size.min(available_space);
+            total_items - can_place
         } else {
             total_items // No slot found, keep all items
         }
@@ -434,7 +464,7 @@ fn calculate_remaining_after_drag(
 
         // Calculate how much can actually be placed in each slot
         for (i, &(ref container_type, slot_index)) in filtered_slots.iter().enumerate() {
-            if let Some(container) = container_manager.get_container(container_type) {
+            if let Some(_container) = container_manager.get_container(container_type) {
                 // Items intended for this slot
                 let intended_amount = if i < remainder as usize {
                     items_per_slot + 1
@@ -443,18 +473,13 @@ fn calculate_remaining_after_drag(
                 };
 
                 // Check how much can actually fit
-                let can_place = match container.get_slot(slot_index) {
-                    None => intended_amount, // Empty slot can take intended amount
-                    Some(existing_stack) => {
-                        if held_stack.can_merge_with(existing_stack) {
-                            let max_size = existing_stack.item.unwrap().properties.max_stack_size;
-                            let available_space = max_size - existing_stack.size;
-                            intended_amount.min(available_space)
-                        } else {
-                            0 // Can't merge
-                        }
-                    }
-                };
+                let available_space = calculate_available_space(
+                    container_type,
+                    slot_index,
+                    held_stack,
+                    container_manager
+                );
+                let can_place = intended_amount.min(available_space);
                 
                 total_can_place += can_place;
             }
@@ -500,13 +525,13 @@ pub fn update_held_item_display(
                         } else if display_count == 1 {
                             text.sections[0].value = item.display_name.to_string();
                         } else {
-                            text.sections[0].value.clear();
+                            clear_text(*text_entity, &mut text_query);
                         }
                     } else {
-                        text.sections[0].value.clear();
+                        clear_text(*text_entity, &mut text_query);
                     }
                 } else {
-                    text.sections[0].value.clear();
+                    clear_text(*text_entity, &mut text_query);
                 }
             }
         }
