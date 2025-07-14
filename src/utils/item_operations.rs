@@ -13,17 +13,17 @@ pub fn process_left_click(slot_index: usize, inventory: &mut SlotContainer, held
         (Some(held_stack), Some(mut clicked_stack)) => {
             if held_stack.can_merge_with(&clicked_stack) {
                 let fully_merged = held_stack.try_merge(&mut clicked_stack);
-                inventory.set_slot(slot_index, Some(clicked_stack));
+                let _ = inventory.set_slot(slot_index, Some(clicked_stack));
                 if fully_merged {
                     held_item.stack = None;
                 }
             } else {
-                inventory.set_slot(slot_index, Some(held_stack.clone()));
+                let _ = inventory.set_slot(slot_index, Some(held_stack.clone()));
                 *held_stack = clicked_stack;
             }
         }
         (Some(held_stack), None) => {
-            inventory.set_slot(slot_index, Some(held_stack.clone()));
+            let _ = inventory.set_slot(slot_index, Some(held_stack.clone()));
             held_item.stack = None;
         }
         (None, None) => {}
@@ -54,12 +54,12 @@ pub fn process_right_click(slot_index: usize, inventory: &mut SlotContainer, hel
         (Some(held_stack), None) => {
             if held_stack.size > 1 {
                 held_stack.size -= 1;
-                inventory.set_slot(slot_index, Some(ItemStack::new(
+                let _ = inventory.set_slot(slot_index, Some(ItemStack::new(
                     held_stack.item.unwrap().clone(),
                     1
                 )));
             } else {
-                inventory.set_slot(slot_index, Some(held_stack.clone()));
+                let _ = inventory.set_slot(slot_index, Some(held_stack.clone()));
                 held_item.stack = None;
             }
         }
@@ -79,7 +79,7 @@ pub fn deposit_single_item(slot_index: usize, container: &mut SlotContainer, hel
         None => {
             held_stack.size -= 1;
             let single_item = ItemStack::new(held_stack.item.unwrap(), 1);
-            container.set_slot(slot_index, Some(single_item));
+            let _ = container.set_slot(slot_index, Some(single_item));
             if held_stack.size == 0 {
                 held_item.stack = None;
             }
@@ -107,7 +107,7 @@ pub fn place_stack_in_slot(
     match container.get_slot_mut(slot_index) {
         None => {
             // Empty slot - place the entire stack
-            container.set_slot(slot_index, Some(stack));
+            let _ = container.set_slot(slot_index, Some(stack));
             None
         }
         Some(existing_stack) => {
@@ -189,7 +189,7 @@ pub fn process_shift_click(
 
     // If there are leftover items, put them back in the original slot
     if let Some(source_container) = container_manager.get_container_mut(source_container_type) {
-        source_container.set_slot(slot_index, Some(item_stack));
+        let _ = source_container.set_slot(slot_index, Some(item_stack));
     }
 }
 
@@ -246,7 +246,7 @@ fn try_place_stack_in_container(container: &mut SlotContainer, mut stack: ItemSt
     // Second pass: place remaining items in empty slots
     for slot_index in 0..slot_count {
         if container.get_slot(slot_index).is_none() {
-            container.set_slot(slot_index, Some(stack));
+            let _ = container.set_slot(slot_index, Some(stack));
             return None; // All items placed
         }
     }
