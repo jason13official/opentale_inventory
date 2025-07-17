@@ -1,6 +1,11 @@
 use crate::world::inventory::item_stack::ItemStack;
 use bevy::prelude::Resource;
 
+#[derive(Debug, Clone)]
+pub enum InventoryError {
+    IndexOutOfBounds { index: usize, max_size: usize },
+}
+
 #[derive(Debug, Copy, Clone)]
 pub struct Slot {
     pub stack: Option<ItemStack>
@@ -112,30 +117,32 @@ impl SlotContainer {
 
     /// Sets the contents of a specific slot
     /// Overrides the original content
-    pub fn set_slot(&mut self, index: usize, stack: Option<ItemStack>) {
-
-        // NO! No silent failure. When we fail, we fail hard.
-        // // RIP original contents, they get over-written
-        // if let Some(slot) = self.slots.get_mut(index) {
-        //     *slot = Slot { stack };
-        //     Ok(())
-        // }
-        // else {
-        //     Err(format!("Index {} out of bounds for container with {} slots", index, self.slots.len()))
-        // }
-
-        // does the slot exist? if so, RIP to its original contents
+    pub fn set_slot(&mut self, index: usize, stack: Option<ItemStack>) -> Result<(), InventoryError> {
         if let Some(slot) = self.slots.get_mut(index) {
             *slot = Slot { stack };
+            Ok(())
+        } else {
+            Err(InventoryError::IndexOutOfBounds { 
+                index, 
+                max_size: self.slots.len() 
+            })
         }
-        else {
-            std::panic!("Out-of-bounds index! Attempted to get index {} but inventory had max size of {} (max index of {})", index, self.slots.len(), self.slots.len() - 1)
-        }
+    }
+
+    /// Sets the contents of a specific slot, panicking on out-of-bounds access
+    /// Only use this when you're certain the index is valid
+    pub fn set_slot_unchecked(&mut self, index: usize, stack: Option<ItemStack>) {
+        self.slots[index] = Slot { stack };
     }
 
     /// Removes and returns the item from a specific slot
     pub fn take_slot(&mut self, index: usize) -> Option<ItemStack> {
         // .take() replaces the value with None, and gives use the old value
         self.slots.get_mut(index)?.take()
+    }
+
+    /// Gets the number of slots in this container
+    pub fn len(&self) -> usize {
+        self.slots.len()
     }
 }

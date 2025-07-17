@@ -1,4 +1,4 @@
-use crate::utils::item_operations::{process_left_click, process_right_click};
+use crate::utils::item_operations::{process_left_click, process_right_click, process_shift_click};
 use crate::utils::slot_finder::find_slot_under_cursor;
 use crate::world::inventory::components::{DragState, HeldItem, InventorySlot, SelectedHotbarSlot};
 use crate::world::inventory::containers::{CloseChestEvent, CloseInventoryEvent, ContainerManager, OpenChestEvent, OpenInventoryEvent, SwitchChestEvent};
@@ -101,6 +101,7 @@ pub fn handle_left_clicks_updated(
     drag_state: Res<DragState>,
     slot_query: Query<(&InventorySlot, &GlobalTransform, &Node)>,
     windows: Query<&Window>,
+    keys: Res<ButtonInput<KeyCode>>,
 ) {
     let Ok(window) = windows.get_single() else { return; };
     let Some(cursor_pos) = window.cursor_position() else { return; };
@@ -109,8 +110,13 @@ pub fn handle_left_clicks_updated(
         if event.button == MouseButton::Left && event.state == ButtonState::Released {
             if !drag_state.is_left_dragging && !drag_state.was_left_dragging_this_frame {
                 if let Some(slot) = find_slot_under_cursor(cursor_pos, &slot_query) {
-                    if let Some(container) = container_manager.get_container_mut(&slot.container_type) {
-                        process_left_click(slot.index, container, &mut held_item);
+                    // Check for shift-click
+                    if keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight) {
+                        process_shift_click(slot.index, &slot.container_type, &mut container_manager);
+                    } else {
+                        if let Some(container) = container_manager.get_container_mut(&slot.container_type) {
+                            process_left_click(slot.index, container, &mut held_item);
+                        }
                     }
                 }
             }

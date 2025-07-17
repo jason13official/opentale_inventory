@@ -39,34 +39,34 @@ pub fn setup_game(
 
     // Add items to hotbar
     if let Some(hotbar) = container_manager.containers.get_mut(&ContainerType::Hotbar) {
-        hotbar.set_slot(0, Some(ItemStack::new(items::APPLE, 16)));
-        hotbar.set_slot(1, Some(ItemStack::new(items::BOW, 1)));
-        hotbar.set_slot(2, Some(ItemStack::new(items::IRON_SWORD, 1)));
+        let _ = hotbar.set_slot(0, Some(ItemStack::new(items::APPLE, 16)));
+        let _ = hotbar.set_slot(1, Some(ItemStack::new(items::BOW, 1)));
+        let _ = hotbar.set_slot(2, Some(ItemStack::new(items::IRON_SWORD, 1)));
     }
 
     // Add items to player inventory
     if let Some(inventory) = container_manager.containers.get_mut(&ContainerType::PlayerInventory) {
-        inventory.set_slot(0, Some(ItemStack::new(items::APPLE, 32)));
-        inventory.set_slot(1, Some(ItemStack::new(items::RING, 8)));
-        inventory.set_slot(9, Some(ItemStack::new(items::GLASS_BOTTLE, 12)));
+        let _ = inventory.set_slot(0, Some(ItemStack::new(items::APPLE, 32)));
+        let _ = inventory.set_slot(1, Some(ItemStack::new(items::RING, 8)));
+        let _ = inventory.set_slot(9, Some(ItemStack::new(items::GLASS_BOTTLE, 12)));
     }
 
     // Add different items to different chests
     if let Some(chest1) = container_manager.containers.get_mut(&ContainerType::Chest(1)) {
-        chest1.set_slot(0, Some(ItemStack::new(items::BOW, 1)));
-        chest1.set_slot(1, Some(ItemStack::new(items::IRON_SWORD, 1)));
-        chest1.set_slot(2, Some(ItemStack::new(items::CHEESE, 3)));
+        let _ = chest1.set_slot(0, Some(ItemStack::new(items::BOW, 1)));
+        let _ = chest1.set_slot(1, Some(ItemStack::new(items::IRON_SWORD, 1)));
+        let _ = chest1.set_slot(2, Some(ItemStack::new(items::CHEESE, 3)));
     }
 
     if let Some(chest2) = container_manager.containers.get_mut(&ContainerType::Chest(2)) {
-        chest2.set_slot(0, Some(ItemStack::new(items::CHEESE, 64)));
-        chest2.set_slot(1, Some(ItemStack::new(items::APPLE, 64)));
-        chest2.set_slot(2, Some(ItemStack::new(items::GLASS_BOTTLE, 32)));
+        let _ = chest2.set_slot(0, Some(ItemStack::new(items::CHEESE, 64)));
+        let _ = chest2.set_slot(1, Some(ItemStack::new(items::APPLE, 64)));
+        let _ = chest2.set_slot(2, Some(ItemStack::new(items::GLASS_BOTTLE, 32)));
     }
 
     if let Some(chest3) = container_manager.containers.get_mut(&ContainerType::Chest(3)) {
-        chest3.set_slot(0, Some(ItemStack::new(items::IRON_SWORD, 1)));
-        chest3.set_slot(1, Some(ItemStack::new(items::RING, 10)));
+        let _ = chest3.set_slot(0, Some(ItemStack::new(items::IRON_SWORD, 1)));
+        let _ = chest3.set_slot(1, Some(ItemStack::new(items::RING, 10)));
     }
 
     // Spawn camera
