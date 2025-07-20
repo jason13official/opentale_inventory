@@ -1,0 +1,10 @@
+{
+    container_name: "chest_uuid",
+    slot_count: 4,
+    inventory: [
+        Some("sword"),
+        Some("potion"),
+        None,
+        None,
+    ],
+}
